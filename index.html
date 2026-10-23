@@ -1,0 +1,2315 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<meta name="description" content="Personal clock-in/clock-out pay and bill tracker. All data stays in this browser.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pay Tracker">
+<title>Pay Tracker</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234f8cf7'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%230b0d11' stroke-width='2.4'/%3E%3Cpath d='M16 10.5V16l4 2.5' stroke='%230b0d11' stroke-width='2.4' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
+<style>:root {
+  color-scheme: light dark;
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #eceef2;
+  --line: #d7dae1;
+  --text: #15181d;
+  --muted: #5e6672;
+  --accent: #1f6feb;
+  --accent-text: #ffffff;
+  --go: #137a4b;
+  --stop: #b4232a;
+  --warn: #8a5300;
+  --warn-bg: #fff4d6;
+  --ot15: #8a5a00;
+  --ot2: #9c2a2a;
+  --radius: 14px;
+  --tap: 48px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+:root[data-theme="dark"],
+html:not([data-theme="light"]) {
+  --bg: #0f1115;
+  --surface: #171a21;
+  --surface-2: #21252e;
+  --line: #2c3240;
+  --text: #e8eaee;
+  --muted: #98a1b0;
+  --accent: #4f8cf7;
+  --accent-text: #0b0d11;
+  --go: #2fbd7a;
+  --stop: #ff6b6b;
+  --warn: #ffcb6b;
+  --warn-bg: #3a2d10;
+  --ot15: #ffcb6b;
+  --ot2: #ff8f8f;
+}
+:root[data-theme="light"] {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #eceef2;
+  --line: #d7dae1;
+  --text: #15181d;
+  --muted: #5e6672;
+  --accent: #1f6feb;
+  --accent-text: #ffffff;
+  --go: #137a4b;
+  --stop: #b4232a;
+  --warn: #8a5300;
+  --warn-bg: #fff4d6;
+  --ot15: #8a5a00;
+  --ot2: #9c2a2a;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  padding-bottom: calc(68px + var(--safe-b));
+  overflow-wrap: break-word;
+}
+h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+h2 { font-size: 1.05rem; }
+h3 { font-size: 0.92rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+a { color: var(--accent); }
+
+/* ---------- chrome ---------- */
+header.app {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+header.app h1 { font-size: 1.02rem; flex: 1; }
+.iconbtn {
+  min-width: 40px; height: 40px; border: 1px solid var(--line);
+  background: var(--surface-2); color: var(--text);
+  border-radius: 10px; font-size: 1.1rem; cursor: pointer;
+}
+main { padding: 14px 16px 24px; max-width: 760px; margin: 0 auto; }
+.view[hidden] { display: none; }
+
+nav.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  display: flex; background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding-bottom: var(--safe-b);
+}
+nav.tabs button {
+  flex: 1; min-height: 64px; border: 0; background: none; cursor: pointer;
+  color: var(--muted); font-size: 0.7rem; font-weight: 600;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  letter-spacing: 0.02em;
+}
+nav.tabs button .ic { font-size: 1.25rem; line-height: 1; }
+nav.tabs button[aria-current="page"] { color: var(--accent); }
+
+/* ---------- cards ---------- */
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 14px; margin-bottom: 14px;
+}
+.card > h2, .card > h3 { margin-bottom: 10px; }
+.sub { color: var(--muted); font-size: 0.85rem; }
+.rowline { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; }
+.rowline + .rowline { border-top: 1px solid var(--line); }
+.rowline.total { font-weight: 700; border-top: 2px solid var(--line); }
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pos { color: var(--go); }
+.neg { color: var(--stop); }
+.c15 { color: var(--ot15); }
+.c2 { color: var(--ot2); }
+.warnbox {
+  background: var(--warn-bg); color: var(--warn); border: 1px solid currentColor;
+  border-radius: 10px; padding: 9px 11px; font-size: 0.85rem; margin: 10px 0 0;
+}
+.empty { color: var(--muted); text-align: center; padding: 22px 8px; font-size: 0.9rem; }
+
+/* ---------- clock ---------- */
+.clockcard { text-align: center; }
+.punchbtn {
+  width: 100%; min-height: 128px; border: 0; border-radius: 18px;
+  font-size: 1.6rem; font-weight: 700; letter-spacing: 0.01em;
+  color: #fff; cursor: pointer; margin-bottom: 12px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+}
+.punchbtn small { font-size: 0.8rem; font-weight: 500; opacity: 0.9; letter-spacing: 0.02em; }
+.punchbtn.in { background: var(--go); }
+.punchbtn.out { background: var(--stop); }
+.punchbtn:active { filter: brightness(0.92); }
+.timer { font-size: 2.6rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 10px; }
+.holidaytoggle {
+  display: flex; align-items: center; gap: 11px; cursor: pointer;
+  margin-top: 14px; padding: 11px 13px; min-height: var(--tap);
+  border: 1px solid var(--line); border-radius: 12px; background: var(--bg);
+  text-align: left;
+}
+.holidaytoggle span { display: flex; flex-direction: column; line-height: 1.25; }
+.holidaytoggle small { color: var(--muted); font-size: 0.78rem; }
+.holidaytoggle:has(input:checked) { border-color: var(--ot2); background: var(--surface-2); }
+.holidaytoggle:has(input:checked) strong { color: var(--ot2); }
+.holidaytoggle input { accent-color: var(--ot2); flex: none; }
+.pill {
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 999px; padding: 5px 11px; font-size: 0.8rem;
+}
+
+/* ---------- stats grid ---------- */
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.stats.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.stat { background: var(--surface-2); border-radius: 10px; padding: 10px 6px; text-align: center; }
+.stat .k {
+  font-size: 0.64rem; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 0.03em; line-height: 1.25;
+}
+.stat .v {
+  font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  margin-top: 2px; white-space: nowrap;
+}
+
+/* ---------- controls ---------- */
+button, input, select, textarea { font: inherit; color: inherit; }
+.btn {
+  min-height: var(--tap); padding: 0 16px; border-radius: 11px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface-2); color: var(--text);
+  font-weight: 600;
+}
+.btn.primary { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+.btn.danger { color: var(--stop); }
+.btn.sm { min-height: 38px; padding: 0 11px; font-size: 0.85rem; font-weight: 500; }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btnrow { display: flex; gap: 8px; flex-wrap: wrap; }
+.btnrow .btn { flex: 1 1 auto; }
+
+label.field { display: block; margin-bottom: 11px; }
+label.field > span { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
+input[type="text"], input[type="number"], input[type="date"], input[type="time"],
+input[type="datetime-local"], select, textarea {
+  width: 100%; min-height: var(--tap); padding: 9px 11px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+}
+textarea { min-height: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 420px) { .grid2 { grid-template-columns: 1fr; } }
+input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); }
+
+.dayboxes { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.daybox {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 8px 2px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg); cursor: pointer; font-size: 0.68rem; font-weight: 600;
+  color: var(--muted);
+}
+.daybox:has(input:checked) { border-color: var(--accent); color: var(--accent); background: var(--surface-2); }
+.daybox input { width: 18px; height: 18px; margin: 0; }
+
+.navrow { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.navrow .btn { min-width: 52px; }
+.navrow .label { flex: 1; text-align: center; font-weight: 650; }
+
+/* ---------- lists ---------- */
+.item { border-top: 1px solid var(--line); padding: 10px 0; }
+.item:first-of-type { border-top: 0; }
+.item .top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.item .name { font-weight: 600; }
+.item .meta { color: var(--muted); font-size: 0.82rem; margin-top: 2px; }
+.item .acts { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.daylist .d { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.daylist .d:first-child { border-top: 0; }
+.daylist .d.off { color: var(--muted); }
+.daylist .dn { font-weight: 600; min-width: 78px; }
+.tag {
+  display: inline-block; font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.05em; padding: 2px 7px; border-radius: 999px;
+  background: var(--surface-2); color: var(--muted); border: 1px solid var(--line);
+}
+.tag.actual { color: var(--go); }
+.tag.proj { color: var(--accent); }
+.tag.over { color: var(--warn); }
+details.check { border-top: 1px solid var(--line); padding: 4px 0; }
+details.check:first-of-type { border-top: 0; }
+details.check > summary {
+  cursor: pointer; padding: 9px 2px; display: flex; gap: 10px;
+  align-items: baseline; justify-content: space-between; list-style: none;
+}
+details.check > summary::-webkit-details-marker { display: none; }
+details.check .body { padding: 2px 2px 12px; }
+
+/* ---------- dialog ---------- */
+dialog {
+  border: 1px solid var(--line); border-radius: 16px; background: var(--surface); color: var(--text);
+  padding: 16px; width: min(94vw, 460px); max-height: 88vh; overflow: auto;
+}
+dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+dialog h2 { margin-bottom: 12px; }
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(80px + var(--safe-b)); z-index: 60;
+  background: var(--text); color: var(--bg);
+  padding: 10px 16px; border-radius: 999px; font-size: 0.88rem; font-weight: 600;
+  opacity: 0; pointer-events: none; transition: opacity 0.18s;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header class="app">
+  <h1 id="viewTitle">Clock</h1>
+  <button class="iconbtn" id="themeBtn" title="Toggle dark mode" aria-label="Toggle dark mode">&#9789;</button>
+</header>
+
+<main>
+
+<!-- ================= HOME ================= -->
+<section class="view" id="v-home">
+  <div class="card" id="setupCard" hidden>
+    <h3>Finish setting up</h3>
+    <div class="sub" style="margin-bottom:12px">Add your shift pattern, hourly rate and tax %
+      so the hours you log turn into real numbers.</div>
+    <div class="btnrow"><button class="btn primary" id="setupBtn">Set up my pay</button></div>
+  </div>
+
+  <div class="card clockcard">
+    <button class="punchbtn in" id="punchBtn"></button>
+    <div class="timer" id="timer">0:00:00</div>
+    <div class="sub" id="sessionInfo">Not clocked in</div>
+    <div class="pills" id="livePills"></div>
+    <label class="holidaytoggle" id="holidayToggle">
+      <input type="checkbox" id="holidayChk">
+      <span><strong>Holiday pay</strong><small id="holidayHint">every hour at 2x</small></span>
+    </label>
+  </div>
+
+  <div class="card">
+    <h3>Today</h3>
+    <div class="stats" id="todayStats"></div>
+    <div class="sub" id="todayNote" style="margin-top:10px"></div>
+  </div>
+
+  <div class="card">
+    <h3>This week <span class="sub" id="weekRangeLabel"></span></h3>
+    <div class="stats" id="homeWeekStats"></div>
+    <div class="rowline total"><span>Next paycheck <span class="sub" id="nextPayLabel"></span></span><span class="num" id="homeNextNet"></span></div>
+  </div>
+
+  <div class="card">
+    <h3>Quick actions</h3>
+    <div class="btnrow">
+      <button class="btn" id="addPunchHome">+ Missed punch</button>
+      <button class="btn" id="markDayHome">Mark a day</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= WEEK ================= -->
+<section class="view" id="v-week" hidden>
+  <div class="navrow">
+    <button class="btn" id="weekPrev" aria-label="Previous week">&#8592;</button>
+    <div class="label" id="weekLabel"></div>
+    <button class="btn" id="weekNext" aria-label="Next week">&#8594;</button>
+  </div>
+  <div class="card">
+    <h3>Hours</h3>
+    <div class="stats" id="weekHourStats"></div>
+    <div class="daylist" id="weekDays" style="margin-top:12px"></div>
+  </div>
+  <div class="card">
+    <h3 id="weekPayTitle">Projected pay for this week</h3>
+    <div id="weekPay"></div>
+  </div>
+  <div class="card">
+    <h3>Earned so far</h3>
+    <div id="weekToDate"></div>
+  </div>
+  <div class="card"><div class="btnrow"><button class="btn" id="weekThis">Jump to this week</button></div></div>
+</section>
+
+<!-- ================= PAYCHECKS ================= -->
+<section class="view" id="v-checks" hidden>
+  <div class="card">
+    <h3>Projection</h3>
+    <div class="grid2">
+      <label class="field"><span>Assumed OT hrs/week at 1.5x</span>
+        <input type="number" id="assumedOt" step="0.25" min="0"></label>
+      <label class="field"><span>Assumed OT hrs/week at 2x</span>
+        <input type="number" id="assumedOt2" step="0.25" min="0"></label>
+    </div>
+    <div class="grid2">
+      <label class="field"><span>Weeks back to show</span>
+        <input type="number" id="weeksBack" step="1" min="0" max="52"></label>
+      <label class="field"><span>Weeks ahead to show</span>
+        <input type="number" id="weeksAhead" step="1" min="1" max="52"></label>
+    </div>
+    <div class="sub">Weeks with logged punches always use the real hours. Weeks with a manual
+      override use that. Everything else uses the assumed OT above.</div>
+  </div>
+  <div class="card">
+    <h3>Paychecks</h3>
+    <div id="checkList"></div>
+    <div class="rowline total"><span>Running savings <span class="sub">across every paycheck shown</span></span><span class="num pos" id="runningTotal"></span></div>
+  </div>
+  <div class="card">
+    <h3>Week overrides</h3>
+    <div id="overrideList"></div>
+    <div class="btnrow" style="margin-top:10px"><button class="btn" id="addOverride">+ Override a week</button></div>
+  </div>
+</section>
+
+<!-- ================= BILLS ================= -->
+<section class="view" id="v-bills" hidden>
+  <div class="card">
+    <h3>Date range total</h3>
+    <div class="grid2">
+      <label class="field"><span>From</span><input type="date" id="rangeFrom"></label>
+      <label class="field"><span>To</span><input type="date" id="rangeTo"></label>
+    </div>
+    <div class="btnrow" style="margin-bottom:10px">
+      <button class="btn sm" id="rangeTueTue">Next Tue &#8594; Tue</button>
+      <button class="btn sm" id="rangeThisMonth">This month</button>
+    </div>
+    <div id="rangeResult"></div>
+  </div>
+  <div class="card">
+    <h3>Monthly bills</h3>
+    <div id="billList"></div>
+    <div class="rowline total"><span>Monthly total</span><span class="num" id="billTotal"></span></div>
+    <div class="btnrow" style="margin-top:12px"><button class="btn primary" id="addBill">+ Add bill</button></div>
+  </div>
+</section>
+
+<!-- ================= MORE ================= -->
+<section class="view" id="v-more" hidden>
+  <div class="card">
+    <h3>Punches</h3>
+    <div class="btnrow" style="margin-bottom:12px">
+      <button class="btn primary" id="addPunch">+ Add a punch</button>
+      <button class="btn" id="markDay">Mark a day</button>
+    </div>
+    <div id="punchList"></div>
+  </div>
+
+  <div class="card">
+    <h3>Marked days</h3>
+    <div id="markerList"></div>
+  </div>
+
+  <div class="card">
+    <h3>Your schedule</h3>
+    <label class="field"><span>Shift pattern</span>
+      <select id="s_schedulePreset"></select></label>
+    <div class="grid2">
+      <label class="field"><span>Shift start</span><input type="time" id="s_shiftStart"></label>
+      <label class="field"><span>Shift end</span><input type="time" id="s_shiftEnd"></label>
+    </div>
+    <div class="field"><span class="sub" style="display:block;margin-bottom:7px;font-weight:600">Days you are scheduled</span>
+      <div class="dayboxes" id="s_days"></div></div>
+    <label class="field" id="anchorField" hidden><span>An overnight shift counts as</span>
+      <select id="s_anchor">
+        <option value="end">The day it ends (10 PM Sun is Monday's shift)</option>
+        <option value="start">The day it starts</option>
+      </select></label>
+  </div>
+
+  <div class="card">
+    <h3>Pay</h3>
+    <div class="grid2">
+      <label class="field"><span>Hourly rate</span><input type="number" id="s_hourlyRate" step="0.01" min="0"></label>
+      <label class="field"><span>Tax %</span><input type="number" id="s_taxRate" step="0.5" min="0" max="100"></label>
+      <label class="field"><span>Full week hours</span><input type="number" id="s_fullWeekHours" step="1" min="0"></label>
+      <label class="field"><span>1.5x multiplier</span><input type="number" id="s_ot15Multiplier" step="0.05"></label>
+      <label class="field"><span>2x multiplier</span><input type="number" id="s_ot2Multiplier" step="0.05"></label>
+      <label class="field"><span>Time zone</span><input type="text" id="s_timezone"></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Overtime and premiums</h3>
+    <div class="grid2">
+      <label class="field"><span>Scheduled day: hrs at 1.5x</span><input type="number" id="s_scheduledOt15Cap" step="0.25" min="0"></label>
+      <label class="field"><span>Day off: hrs at 1.5x</span><input type="number" id="s_offDayOt15Cap" step="0.25" min="0"></label>
+      <label class="field" id="lapseField" hidden><span>Required lapse between shifts (hrs)</span><input type="number" id="s_lapseHours" step="1" min="0" max="23"></label>
+    </div>
+    <div class="sub" id="lapseNote" hidden style="margin-bottom:12px"></div>
+    <div class="sub" style="margin-bottom:12px">Past those hours the day pays 2x. The last day off
+      before your next shift pays 2x from the first minute.</div>
+    <label class="field"><span>Short-week premium</span>
+      <select id="s_premiumMode">
+        <option value="derived">Make whole to a full week (recommended)</option>
+        <option value="fixed">Fixed percentage</option>
+      </select></label>
+    <label class="field"><span>Fixed premium %</span><input type="number" id="s_fixedPremiumPct" step="0.1" min="0"></label>
+    <label class="field"><span>Does the premium lift overtime?</span>
+      <select id="s_premiumOnOvertime">
+        <option value="0">Base only (unconfirmed with payroll)</option>
+        <option value="1">Overtime too</option>
+      </select></label>
+    <label class="field"><span>Time after midnight</span>
+      <select id="s_postMidnightDay">
+        <option value="shift">Stays with the shift day</option>
+        <option value="calendar">Counts toward the next day</option>
+      </select></label>
+    <div class="grid2">
+      <label class="field"><span>Grace window (min)</span><input type="number" id="s_graceMinutes" step="1" min="0"></label>
+      <label class="field"><span>Punch rounding (min)</span><input type="number" id="s_punchRoundingMinutes" step="1" min="0"></label>
+    </div>
+    <label class="field"><span>PTO</span>
+      <select id="s_ptoPaysBase">
+        <option value="1">Still pays that day of base</option>
+        <option value="0">Does not pay base (same as unpaid)</option>
+      </select></label>
+    <label class="field"><span>Warn when bills exceed this share of net</span>
+      <input type="number" id="s_warnShare" step="5" min="0" max="100"></label>
+    <div class="btnrow" style="margin-top:6px">
+      <button class="btn primary" id="saveSettings">Save rules</button>
+      <button class="btn" id="resetSettings">Restore defaults</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Backup</h3>
+    <div class="btnrow">
+      <button class="btn" id="exportBtn">Export JSON</button>
+      <button class="btn" id="importBtn">Import JSON</button>
+      <button class="btn danger" id="wipeBtn">Erase all data</button>
+    </div>
+    <div class="sub" style="margin-top:10px">Everything lives in this browser's localStorage only.
+      Clearing site data erases it, so export now and then.</div>
+  </div>
+
+  <div class="card">
+    <h3>What your rules work out to</h3>
+    <div id="selfTest"></div>
+  </div>
+</section>
+
+</main>
+
+<nav class="tabs" id="tabs">
+  <button data-view="home" data-title="Clock"><span class="ic">&#9201;</span>Clock</button>
+  <button data-view="week" data-title="Week"><span class="ic">&#128197;</span>Week</button>
+  <button data-view="checks" data-title="Paychecks"><span class="ic">&#128176;</span>Pay</button>
+  <button data-view="bills" data-title="Bills"><span class="ic">&#129534;</span>Bills</button>
+  <button data-view="more" data-title="Punches &amp; settings"><span class="ic">&#9881;</span>More</button>
+</nav>
+
+<dialog id="dlg"><form method="dialog" id="dlgForm"><h2 id="dlgTitle"></h2>
+  <div id="dlgBody"></div>
+  <div class="btnrow" style="margin-top:14px">
+    <button class="btn primary" value="ok" id="dlgOk">Save</button>
+    <button class="btn" value="cancel" id="dlgCancel">Cancel</button>
+  </div>
+</form></dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>/* ============================================================
+   PAY ENGINE v2  --  pure, no DOM, no storage.
+   Single source of truth for every number the app displays.
+   Exported as window.PayEngine (browser) / module.exports (node).
+
+   The model, in one paragraph: a person has a SCHEDULE (which days
+   they work and the shift window). Every calendar day is then one of
+   three kinds -- scheduled, day off, or the LAST day off before the
+   next shift -- and that kind alone decides how overtime tiers. Base
+   pay accrues per scheduled day, lifted by a premium that makes a
+   short schedule whole to a full week. Saturday and Sunday are not
+   special; they are just what those rules evaluate to for a Mon-Fri
+   schedule.
+   ============================================================ */
+(function (root, factory) {
+  var api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  root.PayEngine = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+
+  /* ---------- schedules ---------- */
+
+  // days: 0=Sun .. 6=Sat
+  var SCHEDULE_PRESETS = [
+    { id: 'standardDay', name: 'Mon-Fri, 6:00 AM - 2:00 PM',
+      days: [1, 2, 3, 4, 5], shiftStart: '06:00', shiftEnd: '14:00' },
+    { id: 'standard', name: 'Mon-Fri, 2:00 PM - 10:00 PM',
+      days: [1, 2, 3, 4, 5], shiftStart: '14:00', shiftEnd: '22:00' },
+    // 10 PM Sunday is Monday's shift, so an overnight shift is named by the day
+    // it ENDS on: Monday's window runs Sun 22:00 -> Mon 06:00.
+    { id: 'standardNight', name: 'Mon-Fri, 10:00 PM - 6:00 AM',
+      days: [1, 2, 3, 4, 5], shiftStart: '22:00', shiftEnd: '06:00', anchor: 'end' },
+    { id: 'altFriSun', name: 'Fri-Sun, 6:00 AM - 6:00 PM',
+      days: [5, 6, 0], shiftStart: '06:00', shiftEnd: '18:00' },
+    { id: 'altSatMon', name: 'Sat-Mon, 6:00 AM - 6:00 PM',
+      days: [6, 0, 1], shiftStart: '06:00', shiftEnd: '18:00' }
+  ];
+
+  function presetById(id) {
+    for (var i = 0; i < SCHEDULE_PRESETS.length; i++) {
+      if (SCHEDULE_PRESETS[i].id === id) return SCHEDULE_PRESETS[i];
+    }
+    return SCHEDULE_PRESETS[0];
+  }
+
+  /* ---------- defaults ---------- */
+
+  // Nothing personal ships here: no rate, no tax, no bills.
+  var DEFAULT_SETTINGS = {
+    timezone: 'America/Detroit',
+    hourlyRate: 0,              // each person sets their own
+    taxRate: 0,                 // percent withheld; net = gross x (1 - taxRate/100)
+    schedule: JSON.parse(JSON.stringify(presetById('standard'))),
+    fullWeekHours: 40,          // what a short schedule is made whole to
+    premiumMode: 'derived',     // 'derived' = make whole to fullWeekHours | 'fixed'
+    fixedPremiumPct: 11.1,      // only used when premiumMode is 'fixed'
+    premiumOnOvertime: false,   // open: payroll to confirm. Base only by default.
+    ot15Multiplier: 1.5,
+    ot2Multiplier: 2,
+    scheduledOt15Cap: 2,        // on a scheduled day: 2 h at 1.5x, then 2x
+    offDayOt15Cap: 8,           // on a day off: 8 h at 1.5x, then 2x
+    lapseHours: 8,              // required gap between shifts; also where an
+                                // end-anchored shift's day begins (shiftStart - lapse)
+    postMidnightDay: 'shift',   // 'shift' = stays with the shift day | 'calendar'
+    graceMinutes: 0,            // no grace window; overtime starts immediately
+    punchRoundingMinutes: 0,    // exact minutes
+    ptoPaysBase: true,          // PTO / paid holiday still pays its day
+    weekStart: 1                // Monday
+  };
+
+  var DEFAULT_BILLS = [];
+
+  /* ---------- money ---------- */
+
+  // Round half-up to cents, nudged against binary-float representation error.
+  function round2(x) {
+    if (!isFinite(x)) return 0;
+    var s = x < 0 ? -1 : 1, v = Math.abs(x) * 100;
+    return s * Math.round(v + (v * 1e-9)) / 100;
+  }
+
+  /* ---------- time zone ---------- */
+
+  var _fmtCache = {};
+  function fmt(tz) {
+    if (!_fmtCache[tz]) {
+      _fmtCache[tz] = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz, hour12: false,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+    }
+    return _fmtCache[tz];
+  }
+
+  // Wall-clock components of an instant in tz.
+  function localParts(ms, tz) {
+    var p = fmt(tz).formatToParts(new Date(ms)), o = {};
+    for (var i = 0; i < p.length; i++) if (p[i].type !== 'literal') o[p[i].type] = p[i].value;
+    var h = +o.hour === 24 ? 0 : +o.hour;   // some ICU builds emit hour 24
+    return { y: +o.year, m: +o.month, d: +o.day, h: h, mi: +o.minute, s: +o.second };
+  }
+
+  // offset = (wall clock read as if UTC) - (true instant)
+  function tzOffset(ms, tz) {
+    var p = localParts(ms, tz);
+    return Date.UTC(p.y, p.m - 1, p.d, p.h, p.mi, p.s) - (ms - (ms % 1000));
+  }
+
+  // Inverse: the instant at which tz reads this wall clock.
+  // Two passes settle DST; d/m may overflow (d+1 on the 31st is fine).
+  function localToEpoch(y, m, d, h, mi, tz) {
+    var want = Date.UTC(y, m - 1, d, h, mi, 0);
+    var t = want - tzOffset(want, tz);
+    return want - tzOffset(t, tz);
+  }
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function keyOf(p) { return p.y + '-' + pad(p.m) + '-' + pad(p.d); }
+  function dateKey(ms, tz) { return keyOf(localParts(ms, tz)); }
+  function parseKey(k) { var a = String(k).split('-'); return { y: +a[0], m: +a[1], d: +a[2] }; }
+
+  // Day of week of a calendar date key, 0=Sun .. 6=Sat. Calendar-only, tz-free.
+  function dowOfKey(k) { var p = parseKey(k); return new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay(); }
+
+  function addDaysKey(k, n) {
+    var p = parseKey(k), t = new Date(Date.UTC(p.y, p.m - 1, p.d + n));
+    return t.getUTCFullYear() + '-' + pad(t.getUTCMonth() + 1) + '-' + pad(t.getUTCDate());
+  }
+  function daysBetweenKeys(a, b) {
+    var pa = parseKey(a), pb = parseKey(b);
+    return Math.round((Date.UTC(pb.y, pb.m - 1, pb.d) - Date.UTC(pa.y, pa.m - 1, pa.d)) / 86400000);
+  }
+  function daysInMonth(y, m) { return new Date(Date.UTC(y, m, 0)).getUTCDate(); }
+
+  function hhmm(s) { var a = String(s).split(':'); return { h: +a[0] || 0, mi: +a[1] || 0 }; }
+  function hhmmMinutes(s) { var t = hhmm(s); return t.h * 60 + t.mi; }
+
+  /* ---------- week / payday ---------- */
+
+  // Monday of the week containing a date key.
+  function weekStartKey(k, weekStart) {
+    var ws = weekStart == null ? 1 : weekStart;
+    return addDaysKey(k, -((dowOfKey(k) - ws + 7) % 7));
+  }
+  function weekEndKey(k, weekStart) { return addDaysKey(weekStartKey(k, weekStart), 6); }
+  // Worked Mon-Sun, paid the following Tuesday: Monday + 8. Same for every schedule.
+  function paydayForWeekStart(ws) { return addDaysKey(ws, 8); }
+  function weekStartForPayday(pd) { return addDaysKey(pd, -8); }
+
+  /* ---------- the schedule rules ---------- */
+
+  function settingsWith(settings) {
+    var st = Object.assign({}, DEFAULT_SETTINGS, settings || {});
+    st.schedule = Object.assign({}, DEFAULT_SETTINGS.schedule, st.schedule || {});
+    if (!st.schedule.days || !st.schedule.days.length) st.schedule.days = [];
+    return st;
+  }
+
+  // Length of one scheduled shift, in hours. Handles an overnight window.
+  function dailyHoursOf(sched) {
+    var d = hhmmMinutes(sched.shiftEnd) - hhmmMinutes(sched.shiftStart);
+    if (d <= 0) d += 1440;
+    return d / 60;
+  }
+  function isOvernight(sched) {
+    return hhmmMinutes(sched.shiftEnd) <= hhmmMinutes(sched.shiftStart);
+  }
+  // Which calendar day an overnight shift is named by: the one it starts on, or
+  // the one it ends on. A 10 PM - 6 AM shift starting Sunday is Monday's shift.
+  function endAnchored(sched) {
+    return isOvernight(sched) && sched.anchor === 'end';
+  }
+
+  /**
+   * The clock window of the shift NAMED by dayKey, as epoch milliseconds.
+   */
+  function shiftWindow(dayKey, settings) {
+    var st = settingsWith(settings), sc = st.schedule, tz = st.timezone;
+    var p = parseKey(dayKey), ss = hhmm(sc.shiftStart), se = hhmm(sc.shiftEnd);
+    var over = isOvernight(sc), back = endAnchored(sc);
+    return {
+      s: localToEpoch(p.y, p.m, p.d - (back ? 1 : 0), ss.h, ss.mi, tz),
+      e: localToEpoch(p.y, p.m, p.d + (over && !back ? 1 : 0), se.h, se.mi, tz)
+    };
+  }
+
+  /**
+   * The shift day an instant belongs to -- the day whose shift it counts toward,
+   * which is not always the calendar day. For an end-anchored overnight shift the
+   * day turns over `lapseHours` before the shift starts, because the company
+   * requires that gap between shifts: at 10 PM start and an 8 hour lapse, 2 PM
+   * Sunday onwards is already Monday's business.
+   */
+  function shiftDayOf(ms, settings) {
+    var st = settingsWith(settings), sc = st.schedule;
+    var p = localParts(ms, st.timezone), cal = keyOf(p);
+    if (!endAnchored(sc)) return cal;
+    var cutoff = hhmmMinutes(sc.shiftStart) - (st.lapseHours || 0) * 60;
+    return (p.h * 60 + p.mi) >= cutoff ? addDaysKey(cal, 1) : cal;
+  }
+  function scheduledWeeklyHours(sched) {
+    return (sched.days || []).length * dailyHoursOf(sched);
+  }
+
+  /**
+   * The premium that makes a short schedule whole to a full week.
+   * 3 x 12 = 36 scheduled hours against a 40-hour week gives 11.111%,
+   * so the weekly base matches a 5 x 8 schedule exactly. Never negative:
+   * a schedule longer than a full week is not docked.
+   */
+  function premiumFor(settings) {
+    var st = settingsWith(settings);
+    if (st.premiumMode === 'fixed') return Math.max(0, (st.fixedPremiumPct || 0) / 100);
+    var h = scheduledWeeklyHours(st.schedule);
+    if (!h) return 0;
+    return Math.max(0, ((st.fullWeekHours || 0) - h) / h);
+  }
+
+  // What one hour of base time is worth, premium included.
+  function baseHourly(settings) {
+    var st = settingsWith(settings);
+    return st.hourlyRate * (1 + premiumFor(st));
+  }
+  // Base pay earned by one scheduled day.
+  function dailyBase(settings) {
+    var st = settingsWith(settings);
+    return dailyHoursOf(st.schedule) * baseHourly(st);
+  }
+
+  /**
+   * What kind of day this is for the person's schedule:
+   *   'scheduled' -> base for hours in the shift window
+   *   'lastOff'   -> the day right before the next shift; 2x from the first minute
+   *   'off'       -> 8 h at 1.5x, then 2x
+   */
+  function dayKind(dayKeyOrDow, settings) {
+    var st = settingsWith(settings);
+    var dow = typeof dayKeyOrDow === 'number' ? dayKeyOrDow : dowOfKey(dayKeyOrDow);
+    var days = st.schedule.days || [];
+    if (days.indexOf(dow) !== -1) return 'scheduled';
+    if (days.indexOf((dow + 1) % 7) !== -1) return 'lastOff';
+    return 'off';
+  }
+
+  // How many overtime hours that day are paid at 1.5x before 2x takes over.
+  function tierCapFor(kind, settings) {
+    var st = settingsWith(settings);
+    if (kind === 'scheduled') return st.scheduledOt15Cap;
+    if (kind === 'off') return st.offDayOt15Cap;
+    return 0;                        // lastOff: straight to 2x
+  }
+
+  // Split a day's total OT hours into the 1.5x and 2x buckets.
+  function tierDayOt(tierDayKey, otHours, settings) {
+    var st = settingsWith(settings);
+    if (otHours <= 0) return { ot15: 0, ot2: 0 };
+    var cap = tierCapFor(dayKind(tierDayKey, st), st);
+    return { ot15: Math.min(otHours, cap), ot2: Math.max(0, otHours - cap) };
+  }
+
+  /* ---------- session classification ---------- */
+
+  function roundPunch(ms, minutes) {
+    if (!minutes) return ms;
+    var step = minutes * 60000;
+    return Math.round(ms / step) * step;
+  }
+  function overlap(aS, aE, bS, bE) { return Math.max(0, Math.min(aE, bE) - Math.max(aS, bS)); }
+  function toMs(v) { return v == null ? null : (typeof v === 'number' ? v : Date.parse(v)); }
+
+  /**
+   * Split one session into per-calendar-day segments and classify each
+   * segment's minutes as regular (inside the shift window on a scheduled
+   * day) or overtime (everything else).
+   */
+  function classifySession(session, settings, dayMarkers) {
+    var st = settingsWith(settings);
+    var tz = st.timezone;
+    var s = roundPunch(toMs(session.start), st.punchRoundingMinutes);
+    var e = toMs(session.end);
+    if (e == null) return { segments: [], totalHours: 0, startDay: dateKey(s, tz) };
+    e = roundPunch(e, st.punchRoundingMinutes);
+    if (e <= s) return { segments: [], totalHours: 0, startDay: dateKey(s, tz) };
+
+    var startDay = shiftDayOf(s, st);     // the shift this session belongs to
+    var overnightShift = isOvernight(st.schedule);
+    var grace = st.graceMinutes * 60000;
+    // Holiday pay is claimed per session, on the clock screen: every hour of it
+    // pays 2x, so none of it counts as regular time.
+    var holidaySession = !!session.holiday;
+    var segs = [], cur = s, guard = 0;
+
+    while (cur < e && guard++ < 400) {
+      var p = localParts(cur, tz);
+      var nextMidnight = localToEpoch(p.y, p.m, p.d + 1, 0, 0, tz);
+      var segEnd = Math.min(e, nextMidnight);
+      var cal = keyOf(p);
+      var kind = dayKind(cal, st);
+
+      // Regular time is anything inside a scheduled shift's window. An overnight
+      // shift spans two calendar days, so a segment on day C can belong to the
+      // shift named C-1, C or C+1; the windows never overlap, so summing is safe.
+      var reg = 0;
+      if (!holidaySession) {
+        for (var off = (overnightShift ? -1 : 0); off <= (overnightShift ? 1 : 0); off++) {
+          var named = off ? addDaysKey(cal, off) : cal;
+          if (dayKind(named, st) !== 'scheduled') continue;
+          var win = shiftWindow(named, st);
+          reg += overlap(cur, segEnd, win.s - grace, win.e + grace);
+        }
+      }
+
+      var dur = segEnd - cur;
+      // Which day's OT tiers does this time fall under? By default the whole
+      // session tiers under the shift it belongs to.
+      var tier = st.postMidnightDay === 'shift' ? startDay : shiftDayOf(cur, st);
+
+      segs.push({
+        calendarDay: cal, tierDay: tier, dayKind: kind, holiday: holidaySession,
+        hours: dur / 3600000, regularHours: reg / 3600000, otHours: (dur - reg) / 3600000,
+        startMs: cur, endMs: segEnd
+      });
+      cur = segEnd;
+    }
+    var total = 0;
+    for (var i = 0; i < segs.length; i++) total += segs[i].hours;
+    return { segments: segs, totalHours: total, startDay: startDay };
+  }
+
+  /* ---------- week pay ---------- */
+
+  /**
+   * Base for one Mon-Sun pay week: every scheduled day that falls inside it,
+   * whether or not the person punched, less any unpaid days.
+   * For a Sat-Mon schedule this is what splits the week correctly across
+   * two paychecks instead of failing.
+   */
+  function weekBase(weekStartKeyValue, settings, dayMarkers) {
+    var st = settingsWith(settings);
+    var markers = dayMarkers || {};
+    var per = dailyBase(st), scheduled = 0, unpaid = 0;
+    for (var i = 0; i < 7; i++) {
+      var k = addDaysKey(weekStartKeyValue, i);
+      if (dayKind(k, st) !== 'scheduled') continue;
+      scheduled++;
+      var m = markers[k];
+      if (m === 'unpaid' || (m && !st.ptoPaysBase)) unpaid++;
+    }
+    return {
+      scheduledDays: scheduled, unpaidDays: unpaid, dailyBase: per,
+      baseGross: Math.max(0, (scheduled - unpaid) * per)
+    };
+  }
+
+  /**
+   * Pay for one week from raw hour buckets. The one place pay is computed.
+   * opts: { baseGross, unpaidDays, unpaidHours, baseOnly }
+   * unpaidHours is partial time off, in decimal hours, on top of any whole days.
+   */
+  function payFromHours(hrs, settings, opts) {
+    var st = settingsWith(settings);
+    var o = opts || {};
+    var per = dailyBase(st);
+    var baseGross = o.baseGross != null ? o.baseGross
+      : Math.max(0, ((st.schedule.days || []).length - (o.unpaidDays || 0)) * per);
+    var unpaidHours = o.unpaidHours || 0;
+    var unpaidPartial = unpaidHours * baseHourly(st);
+    if (unpaidPartial) baseGross = Math.max(0, baseGross - unpaidPartial);
+
+    var ot15Hours = o.baseOnly ? 0 : (hrs.ot15 || 0);
+    var ot2Hours = o.baseOnly ? 0 : (hrs.ot2 || 0);
+    var prem = st.premiumOnOvertime ? (1 + premiumFor(st)) : 1;
+    var ot15Rate = st.hourlyRate * st.ot15Multiplier * prem;
+    var ot2Rate = st.hourlyRate * st.ot2Multiplier * prem;
+
+    var ot15Pay = ot15Hours * ot15Rate;
+    var ot2Pay = ot2Hours * ot2Rate;
+    var gross = baseGross + ot15Pay + ot2Pay;      // full precision
+    return {
+      regularHours: hrs.regularHours || 0,
+      ot15Hours: ot15Hours, ot2Hours: ot2Hours,
+      otHours: ot15Hours + ot2Hours,
+      totalHours: (hrs.regularHours || 0) + ot15Hours + ot2Hours,
+      ot15Rate: ot15Rate, ot2Rate: ot2Rate,
+      dailyBase: per, baseHourly: baseHourly(st), premium: premiumFor(st),
+      unpaidDays: o.unpaidDays || 0,
+      unpaidHours: unpaidHours, unpaidPartialPay: unpaidPartial,
+      baseGross: baseGross, ot15Pay: ot15Pay, ot2Pay: ot2Pay,
+      gross: gross, net: gross * (1 - (st.taxRate || 0) / 100)
+    };
+  }
+
+  /**
+   * Aggregate sessions into weeks of hour buckets, keyed by Monday date key.
+   * dayMarkers: { '2026-10-20': 'pto' | 'holiday' | 'unpaid' }
+   */
+  function buildWeeks(sessions, settings, dayMarkers) {
+    var st = settingsWith(settings);
+    var markers = dayMarkers || {};
+    var byTierDay = {};
+
+    (sessions || []).forEach(function (sess) {
+      classifySession(sess, st, markers).segments.forEach(function (sg) {
+        var t = byTierDay[sg.tierDay] ||
+                (byTierDay[sg.tierDay] = { regular: 0, ot: 0, otHoliday: 0 });
+        t.regular += sg.regularHours;
+        // Holiday hours bypass the 1.5x tier entirely, even on a day that also
+        // holds ordinary hours.
+        if (sg.holiday) t.otHoliday += sg.otHours; else t.ot += sg.otHours;
+      });
+    });
+
+    var weeks = {};
+    function weekOf(k) {
+      var ws = weekStartKey(k, st.weekStart);
+      return weeks[ws] || (weeks[ws] = {
+        weekStart: ws, weekEnd: addDaysKey(ws, 6), payday: paydayForWeekStart(ws),
+        regularHours: 0, ot15: 0, ot2: 0, markers: {}, days: {}
+      });
+    }
+
+    Object.keys(byTierDay).forEach(function (day) {
+      var w = weekOf(day), t = byTierDay[day];
+      var split = tierDayOt(day, t.ot, st);
+      var dayOt2 = split.ot2 + t.otHoliday;
+      w.regularHours += t.regular;
+      w.ot15 += split.ot15;
+      w.ot2 += dayOt2;
+      w.days[day] = {
+        regularHours: t.regular, otHours: t.ot + t.otHoliday,
+        ot15: split.ot15, ot2: dayOt2, holidayHours: t.otHoliday,
+        kind: dayKind(day, st)
+      };
+    });
+    Object.keys(markers).forEach(function (day) {
+      if (markers[day]) weekOf(day).markers[day] = markers[day];
+    });
+
+    return Object.keys(weeks).sort().map(function (ws) {
+      var w = weeks[ws];
+      var wb = weekBase(ws, st, markers);
+      w.scheduledDays = wb.scheduledDays;
+      w.unpaidDays = wb.unpaidDays;
+      w.pay = payFromHours({ regularHours: w.regularHours, ot15: w.ot15, ot2: w.ot2 },
+                           st, { baseGross: wb.baseGross, unpaidDays: wb.unpaidDays });
+      return w;
+    });
+  }
+
+  // A week override is "set" once it says anything about the week at all.
+  function isOverride(ov) {
+    return !!(ov && (ov.ot15 != null || ov.ot2 != null || ov.baseOnly));
+  }
+  // Pay for a week stated by hand rather than by punches.
+  function payFromOverride(ov, settings, weekStartKeyValue, dayMarkers) {
+    var st = settingsWith(settings);
+    var wb = weekStartKeyValue ? weekBase(weekStartKeyValue, st, dayMarkers) : null;
+    var scheduledDays = wb ? wb.scheduledDays : (st.schedule.days || []).length;
+    // An override states the week itself, so its own unpaid days win over any
+    // day markers. Compute the base here so they actually come off it.
+    var unpaidDays = ov.unpaidDays != null ? ov.unpaidDays : (wb ? wb.unpaidDays : 0);
+    return payFromHours(
+      { regularHours: scheduledWeeklyHours(st.schedule), ot15: ov.ot15 || 0, ot2: ov.ot2 || 0 },
+      st,
+      { baseGross: Math.max(0, (scheduledDays - unpaidDays) * dailyBase(st)),
+        unpaidDays: unpaidDays,
+        unpaidHours: ov.unpaidHours || 0,
+        baseOnly: !!ov.baseOnly });
+  }
+
+  /* ---------- bills ---------- */
+
+  function billDueDayInMonth(bill, y, m) {
+    return Math.min(bill.dueDay, daysInMonth(y, m));   // a 31st bill lands on Feb 28/29
+  }
+  function isSkipped(bill, y, m) {
+    return (bill.skips || []).indexOf(y + '-' + pad(m)) !== -1;
+  }
+
+  // Every bill instance due in [startKey, endKey] inclusive.
+  function billsInRange(bills, startKey, endKey, excludeIds) {
+    var ex = excludeIds || [], out = [], total = 0;
+    if (daysBetweenKeys(startKey, endKey) < 0) return { items: [], total: 0 };
+    var s = parseKey(startKey), e = parseKey(endKey);
+    var y = s.y, m = s.m, guard = 0;
+    while (y * 12 + m <= e.y * 12 + e.m && guard++ < 2400) {
+      (function (y, m) {
+        (bills || []).forEach(function (b) {
+          if (isSkipped(b, y, m)) return;
+          var k = y + '-' + pad(m) + '-' + pad(billDueDayInMonth(b, y, m));
+          if (daysBetweenKeys(startKey, k) < 0 || daysBetweenKeys(k, endKey) < 0) return;
+          var excluded = ex.indexOf(b.id) !== -1;
+          out.push({ id: b.id, label: b.label, amount: b.amount, dateKey: k, excluded: excluded });
+          if (!excluded) total += b.amount;
+        });
+      })(y, m);
+      m++; if (m > 12) { m = 1; y++; }
+    }
+    out.sort(function (a, b) { return a.dateKey < b.dateKey ? -1 : a.dateKey > b.dateKey ? 1 : 0; });
+    return { items: out, total: total };
+  }
+
+  // A paycheck covers its payday through the Monday before the next payday.
+  function paycheckWindow(payday) { return { start: payday, end: addDaysKey(payday, 6) }; }
+
+  /* ---------- paychecks & projection ---------- */
+
+  /**
+   * Build the paycheck list across a span of paydays.
+   * opts: { firstPayday, lastPayday, sessions, dayMarkers, bills, settings,
+   *         assumedOt15, assumedOt2, weekOverrides, excludeBillIds, todayKey }
+   */
+  function buildPaychecks(opts) {
+    var st = settingsWith(opts.settings);
+    var markers = opts.dayMarkers || {};
+    var byWeekStart = {};
+    buildWeeks(opts.sessions, st, markers).forEach(function (w) { byWeekStart[w.weekStart] = w; });
+    var overrides = opts.weekOverrides || {};
+    var assumed15 = opts.assumedOt15 == null ? 0 : opts.assumedOt15;
+    var assumed2 = opts.assumedOt2 == null ? 0 : opts.assumedOt2;
+    var todayKey = opts.todayKey || null;
+
+    var out = [], pd = opts.firstPayday, guard = 0;
+    while (daysBetweenKeys(pd, opts.lastPayday) >= 0 && guard++ < 520) {
+      var ws = weekStartForPayday(pd);
+      var actual = byWeekStart[ws];
+      var ov = overrides[ws] || null;
+      var source, pay;
+
+      // An explicit override is a manual statement about the week, so it wins
+      // over logged punches; delete the override to go back to the punches.
+      if (isOverride(ov)) {
+        source = 'override';
+        pay = payFromOverride(ov, st, ws, markers);
+      } else if (actual) {
+        source = 'actual';
+        pay = actual.pay;
+      } else {
+        source = 'projected';
+        var wb = weekBase(ws, st, markers);
+        pay = payFromHours(
+          { regularHours: scheduledWeeklyHours(st.schedule), ot15: assumed15, ot2: assumed2 },
+          st, { baseGross: wb.baseGross, unpaidDays: wb.unpaidDays });
+      }
+
+      var win = paycheckWindow(pd);
+      var bills = billsInRange(opts.bills, win.start, win.end, opts.excludeBillIds);
+      out.push({
+        payday: pd, weekStart: ws, weekEnd: addDaysKey(ws, 6),
+        windowStart: win.start, windowEnd: win.end,
+        source: source, pay: pay, gross: pay.gross, net: pay.net,
+        bills: bills.items, billsTotal: bills.total,
+        savings: pay.net - bills.total,
+        isPast: todayKey ? daysBetweenKeys(pd, todayKey) >= 0 : false
+      });
+      pd = addDaysKey(pd, 7);
+    }
+
+    // Running total is the sum of the rounded per-paycheck savings, as displayed.
+    var running = 0;
+    out.forEach(function (p) { running = round2(running + round2(p.savings)); p.runningSavings = running; });
+    return out;
+  }
+
+  return {
+    DEFAULT_SETTINGS: DEFAULT_SETTINGS,
+    DEFAULT_BILLS: DEFAULT_BILLS,
+    SCHEDULE_PRESETS: SCHEDULE_PRESETS, presetById: presetById,
+    round2: round2, settingsWith: settingsWith,
+    localParts: localParts, localToEpoch: localToEpoch, tzOffset: tzOffset,
+    dateKey: dateKey, parseKey: parseKey, keyOf: keyOf, pad: pad,
+    dowOfKey: dowOfKey, addDaysKey: addDaysKey, daysBetweenKeys: daysBetweenKeys,
+    daysInMonth: daysInMonth,
+    weekStartKey: weekStartKey, weekEndKey: weekEndKey,
+    paydayForWeekStart: paydayForWeekStart, weekStartForPayday: weekStartForPayday,
+    paycheckWindow: paycheckWindow,
+    dailyHoursOf: dailyHoursOf, scheduledWeeklyHours: scheduledWeeklyHours,
+    isOvernight: isOvernight, endAnchored: endAnchored,
+    shiftWindow: shiftWindow, shiftDayOf: shiftDayOf,
+    premiumFor: premiumFor, dailyBase: dailyBase, baseHourly: baseHourly,
+    dayKind: dayKind, tierCapFor: tierCapFor, tierDayOt: tierDayOt,
+    classifySession: classifySession, weekBase: weekBase,
+    payFromHours: payFromHours, buildWeeks: buildWeeks,
+    isOverride: isOverride, payFromOverride: payFromOverride,
+    billsInRange: billsInRange, buildPaychecks: buildPaychecks
+  };
+});
+</script>
+<script>/* ============================================================
+   APP LAYER  --  storage, rendering, interaction.
+   All arithmetic is delegated to PayEngine (src/engine.js),
+   which is verified by src/test-engine.js.
+   ============================================================ */
+(function () {
+  'use strict';
+  var E = window.PayEngine;
+  var R = E.round2;
+  var KEY = 'payTracker.v1';
+  var $ = function (id) { return document.getElementById(id); };
+  var el = function (tag, cls, html) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (html != null) n.innerHTML = html;
+    return n;
+  };
+  var esc = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  };
+
+  /* ---------------- state ---------------- */
+
+  var DEFAULT_PREFS = {
+    theme: 'dark', assumedOt15: 0, assumedOt2: 0, weeksBack: 4, weeksAhead: 10,
+    warnShare: 40, excludeBillIds: [], setupDone: false, pendingHoliday: false
+  };
+
+  var DB_VERSION = 3;   // 2: Sunday became double time. 3: schedules, tax %, no seeded data.
+
+  // Nothing personal: no rate, no tax, no bills, no overrides. Setup asks.
+  function freshDB() {
+    return {
+      v: DB_VERSION,
+      settings: JSON.parse(JSON.stringify(E.DEFAULT_SETTINGS)),
+      bills: [],
+      sessions: [],
+      dayMarkers: {},
+      weekOverrides: {},
+      prefs: Object.assign({}, DEFAULT_PREFS, { setupDone: false })
+    };
+  }
+
+  // Old saves predate schedules and stored net rather than tax.
+  function migrate(d) {
+    var s = d.settings || {};
+    if (!(d.v >= 3)) {
+      if (s.taxRate == null) {
+        s.taxRate = s.netFactor != null ? Math.round((1 - s.netFactor) * 10000) / 100 : 0;
+      }
+      if (!s.schedule) {
+        s.schedule = {
+          id: 'custom', name: 'My schedule',
+          days: (s.baseDays && s.baseDays.length) ? s.baseDays.slice() : [1, 2, 3, 4, 5],
+          shiftStart: s.shiftStart || '14:00',
+          shiftEnd: s.shiftEnd || '22:00'
+        };
+        E.SCHEDULE_PRESETS.forEach(function (p) {
+          if (p.days.join() === s.schedule.days.join() &&
+              p.shiftStart === s.schedule.shiftStart && p.shiftEnd === s.schedule.shiftEnd) {
+            s.schedule.id = p.id; s.schedule.name = p.name;
+          }
+        });
+      }
+      if (s.scheduledOt15Cap == null && s.dailyOt15Cap != null) s.scheduledOt15Cap = s.dailyOt15Cap;
+      ['netFactor', 'baseDays', 'baseWeeklyGross', 'baseHours',
+       'saturdayRule', 'sundayRule', 'dailyOt15Cap', 'shiftStart', 'shiftEnd'].forEach(function (k) {
+        delete s[k];
+      });
+      if (d.prefs) d.prefs.setupDone = true;   // an existing user has already set up
+    }
+    d.settings = s;
+    d.v = DB_VERSION;
+    return d;
+  }
+
+  var DB;
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return freshDB();
+      var d = migrate(JSON.parse(raw));
+      d.settings = E.settingsWith(d.settings);
+      d.prefs = Object.assign({}, DEFAULT_PREFS, d.prefs || {});
+      d.bills = d.bills || [];
+      d.sessions = d.sessions || [];
+      d.dayMarkers = d.dayMarkers || {};
+      d.weekOverrides = d.weekOverrides || {};
+      return d;
+    } catch (err) {
+      console.error('Could not read saved data, starting fresh.', err);
+      return freshDB();
+    }
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(DB)); }
+    catch (err) { toast('Could not save - storage may be full'); console.error(err); }
+  }
+
+  DB = load();
+  var S = function () { return DB.settings; };
+  var TZ = function () { return DB.settings.timezone || 'America/Detroit'; };
+  var sched = function () { return DB.settings.schedule; };
+
+  /* ---------------- formatting ---------------- */
+
+  function money(x) {
+    var v = R(x);
+    return (v < 0 ? '-$' : '$') + Math.abs(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+  function hrs(x) {
+    var mins = Math.round((x || 0) * 60);
+    if (mins <= 0) return '0h';
+    var h = Math.floor(mins / 60), m = mins % 60;
+    return (h ? h + 'h' : '') + (m ? (h ? ' ' : '') + m + 'm' : '');
+  }
+  function hnum(x) { return (Math.round((x || 0) * 100) / 100).toString(); }
+  // Rates are shown unrounded (71.205, not 71.21) because that is what is paid from.
+  function rate(x) {
+    var v = x || 0;
+    return '$' + (Math.abs(v * 100 - Math.round(v * 100)) > 1e-9 ? v.toFixed(3) : v.toFixed(2));
+  }
+
+  var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  function fmtKey(k, withDow) {
+    var p = E.parseKey(k);
+    return (withDow ? DOW[E.dowOfKey(k)] + ' ' : '') + MON[p.m - 1] + ' ' + p.d;
+  }
+  function fmtKeyYear(k) { return fmtKey(k) + ', ' + E.parseKey(k).y; }
+  function fmtClock(ms) {
+    var p = E.localParts(ms, TZ());
+    var h = p.h % 12; if (h === 0) h = 12;
+    return h + ':' + E.pad(p.mi) + ' ' + (p.h < 12 ? 'AM' : 'PM');
+  }
+  function elapsed(msDiff) {
+    var s = Math.max(0, Math.floor(msDiff / 1000));
+    return Math.floor(s / 3600) + ':' + E.pad(Math.floor(s / 60) % 60) + ':' + E.pad(s % 60);
+  }
+  function todayKey() { return E.dateKey(Date.now(), TZ()); }
+
+  function msToInput(ms) {
+    var p = E.localParts(ms, TZ());
+    return p.y + '-' + E.pad(p.m) + '-' + E.pad(p.d) + 'T' + E.pad(p.h) + ':' + E.pad(p.mi);
+  }
+  function inputToMs(v) {
+    if (!v) return null;
+    var a = v.split('T'), d = E.parseKey(a[0]), t = (a[1] || '00:00').split(':');
+    return E.localToEpoch(d.y, d.m, d.d, +t[0], +t[1], TZ());
+  }
+
+  function toast(msg) {
+    var t = $('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { t.classList.remove('show'); }, 1900);
+  }
+
+  // Fills an existing .stats container; it IS the grid, so nothing is nested inside a cell.
+  function fillStats(node, items, two) {
+    node.className = 'stats' + (two ? ' two' : '');
+    node.innerHTML = '';
+    items.forEach(function (it) {
+      var s = el('div', 'stat');
+      s.appendChild(el('div', 'k', esc(it.k)));
+      s.appendChild(el('div', 'v' + (it.cls ? ' ' + it.cls : ''), esc(it.v)));
+      node.appendChild(s);
+    });
+  }
+  function row(parent, label, value, cls) {
+    var r = el('div', 'rowline' + (cls && cls.indexOf('total') >= 0 ? ' total' : ''));
+    r.appendChild(el('span', null, label));
+    r.appendChild(el('span', 'num' + (cls ? ' ' + cls.replace('total', '').trim() : ''), esc(value)));
+    parent.appendChild(r);
+    return r;
+  }
+
+  /* ---------------- generic dialog ---------------- */
+
+  var dlgHandler = null;
+  function openForm(title, fields, onSave, okLabel) {
+    $('dlgTitle').textContent = title;
+    $('dlgOk').textContent = okLabel || 'Save';
+    var body = $('dlgBody');
+    body.innerHTML = '';
+    fields.forEach(function (f) {
+      if (f.type === 'html') { body.appendChild(el('div', f.cls || 'sub', f.html)); return; }
+      var lab = el('label', 'field');
+      lab.appendChild(el('span', null, esc(f.label)));
+      var inp;
+      if (f.type === 'select') {
+        inp = el('select');
+        (f.options || []).forEach(function (o) {
+          var op = el('option', null, esc(o.label));
+          op.value = o.value;
+          inp.appendChild(op);
+        });
+        inp.value = f.value == null ? '' : String(f.value);
+      } else if (f.type === 'checkbox') {
+        inp = el('input'); inp.type = 'checkbox'; inp.checked = !!f.value;
+        lab.style.display = 'flex'; lab.style.alignItems = 'center'; lab.style.gap = '10px';
+        lab.firstChild.style.margin = '0';
+        lab.insertBefore(inp, lab.firstChild);
+      } else {
+        inp = el('input'); inp.type = f.type || 'text';
+        if (f.step != null) inp.step = f.step;
+        if (f.min != null) inp.min = f.min;
+        if (f.max != null) inp.max = f.max;
+        inp.value = f.value == null ? '' : f.value;
+      }
+      inp.id = 'f_' + f.key;
+      if (f.type !== 'checkbox') lab.appendChild(inp);
+      body.appendChild(lab);
+    });
+    dlgHandler = function (okd) {
+      if (!okd) return;
+      var out = {};
+      fields.forEach(function (f) {
+        if (f.type === 'html') return;
+        var i = $('f_' + f.key);
+        out[f.key] = f.type === 'checkbox' ? i.checked
+                   : f.type === 'number' ? (i.value === '' ? null : +i.value)
+                   : i.value;
+      });
+      onSave(out);
+    };
+    dlgIntent = 'cancel';
+    $('dlg').showModal();
+  }
+  /* Committing a dialog.
+     Some mobile browsers never fire a <dialog>'s `close` event, which would make
+     every Save in this app silently do nothing. So the form's `submit` is the
+     primary commit and `close` is only a fallback; whichever arrives first
+     consumes the handler, so the other is a no-op. */
+  var dlgIntent = 'cancel';
+  function commitDialog(ok) {
+    var h = dlgHandler;
+    dlgHandler = null;
+    dlgIntent = 'cancel';
+    if (h) h(ok);
+  }
+  $('dlgOk').addEventListener('click', function () { dlgIntent = 'ok'; });
+  $('dlgCancel').addEventListener('click', function () { dlgIntent = 'cancel'; });
+
+  $('dlgForm').addEventListener('submit', function (e) {
+    var ok = e.submitter ? e.submitter.value === 'ok' : dlgIntent === 'ok';
+    commitDialog(ok);
+    // method="dialog" normally closes it; close it ourselves where that fails.
+    if ($('dlg').open) { try { $('dlg').close(ok ? 'ok' : 'cancel'); } catch (err) {} }
+  });
+  $('dlg').addEventListener('close', function () {
+    commitDialog($('dlg').returnValue === 'ok');
+  });
+  $('dlg').addEventListener('cancel', function () { commitDialog(false); });
+
+  function confirmThen(msg, fn) { if (window.confirm(msg)) fn(); }
+
+  /* ---------------- derived data ---------------- */
+
+  function activeSession() {
+    for (var i = 0; i < DB.sessions.length; i++) if (DB.sessions[i].end == null) return DB.sessions[i];
+    return null;
+  }
+  function closedSessions(extraNowEnd) {
+    var out = [];
+    DB.sessions.forEach(function (s) {
+      if (s.end != null) out.push(s);
+      // The running session is snapshotted as if it ended now; it must keep its
+      // holiday flag or live totals tier it as ordinary time.
+      else if (extraNowEnd) out.push({
+        id: s.id, start: s.start, end: Date.now(), holiday: !!s.holiday, live: true
+      });
+    });
+    return out;
+  }
+  function weeksNow(includeLive) {
+    return E.buildWeeks(closedSessions(includeLive), S(), DB.dayMarkers);
+  }
+  function weekFor(wsKey, includeLive) {
+    var all = weeksNow(includeLive);
+    for (var i = 0; i < all.length; i++) if (all[i].weekStart === wsKey) return all[i];
+    return null;
+  }
+  function emptyWeek(wsKey) {
+    return {
+      weekStart: wsKey, weekEnd: E.addDaysKey(wsKey, 6), payday: E.paydayForWeekStart(wsKey),
+      regularHours: 0, ot15: 0, ot2: 0, unpaidDays: 0, markers: {}, days: {},
+      pay: E.payFromHours({ regularHours: 0, ot15: 0, ot2: 0 }, S(), {})
+    };
+  }
+  // What this week actually pays: a hand-entered override wins over the punches,
+  // so Home, Week and Paychecks all agree on one number.
+  function weekPay(wk) {
+    var ov = DB.weekOverrides[wk.weekStart];
+    if (E.isOverride(ov)) return { pay: E.payFromOverride(ov, S(), wk.weekStart, DB.dayMarkers), override: ov };
+    return { pay: wk.pay, override: null };
+  }
+
+  function paychecks(includeLive) {
+    var thisWs = E.weekStartKey(todayKey(), 1);
+    var p = DB.prefs;
+    return E.buildPaychecks({
+      firstPayday: E.paydayForWeekStart(E.addDaysKey(thisWs, -7 * (p.weeksBack || 0))),
+      lastPayday: E.paydayForWeekStart(E.addDaysKey(thisWs, 7 * (p.weeksAhead || 1))),
+      sessions: closedSessions(includeLive),
+      dayMarkers: DB.dayMarkers, bills: DB.bills, settings: S(),
+      assumedOt15: p.assumedOt15 || 0,
+      assumedOt2: p.assumedOt2 || 0,
+      weekOverrides: DB.weekOverrides,
+      todayKey: todayKey()
+    });
+  }
+
+  /* ---------------- HOME ---------------- */
+
+  var tick = null;
+
+  function renderHome() {
+    $('setupCard').hidden = !!DB.prefs.setupDone && !!S().hourlyRate;
+    var act = activeSession();
+    var btn = $('punchBtn');
+    btn.className = 'punchbtn ' + (act ? 'out' : 'in');
+    btn.innerHTML = act ? 'Clock Out<small>tap when you leave</small>'
+                        : 'Clock In<small>tap when you start</small>';
+
+    $('sessionInfo').textContent = act
+      ? 'Started ' + fmtClock(act.start) + ' on ' + fmtKey(E.dateKey(act.start, TZ()), true)
+      : 'Not clocked in';
+
+    $('holidayChk').checked = act ? !!act.holiday : !!DB.prefs.pendingHoliday;
+    $('holidayHint').textContent = act
+      ? 'every hour of this shift at 2x'
+      : (DB.prefs.pendingHoliday ? 'ready for your next clock-in' : 'every hour at 2x');
+
+    renderLive();
+
+    // Today
+    var tk = todayKey();
+    var wk = weekFor(E.weekStartKey(tk, 1), true) || emptyWeek(E.weekStartKey(tk, 1));
+    var d = wk.days[tk] || { regularHours: 0, ot15: 0, ot2: 0, otHours: 0 };
+    fillStats($('todayStats'), [
+      { k: 'Shift', v: hrs(d.regularHours) },
+      { k: '1.5x', v: hrs(d.ot15), cls: d.ot15 ? 'c15' : '' },
+      { k: '2x', v: hrs(d.ot2), cls: d.ot2 ? 'c2' : '' }
+    ]);
+    var marker = DB.dayMarkers[tk];
+    $('todayNote').textContent = marker
+      ? 'Today is marked ' + marker + '.'
+      : fmtKey(tk, true) + ' - ' + esc(sched().name) + ', ' + TZ() + '.';
+
+    // This week
+    $('weekRangeLabel').textContent = fmtKey(wk.weekStart) + ' - ' + fmtKey(wk.weekEnd);
+    fillStats($('homeWeekStats'), [
+      { k: 'Shift', v: hnum(wk.regularHours) + ' h' },
+      { k: '1.5x', v: hnum(wk.ot15) + ' h', cls: wk.ot15 ? 'c15' : '' },
+      { k: '2x', v: hnum(wk.ot2) + ' h', cls: wk.ot2 ? 'c2' : '' }
+    ]);
+    var wp = weekPay(wk);
+    $('nextPayLabel').textContent = '(' + fmtKey(wk.payday, true) + (wp.override ? ', override' : '') + ')';
+    $('homeNextNet').textContent = money(wp.pay.net);
+  }
+
+  function renderLive() {
+    var act = activeSession();
+    var pills = $('livePills');
+    if (!act) {
+      $('timer').textContent = '0:00:00';
+      pills.innerHTML = '';
+      if (tick) { clearInterval(tick); tick = null; }
+      return;
+    }
+    $('timer').textContent = elapsed(Date.now() - act.start);
+    var c = E.classifySession({ start: act.start, end: Date.now(), holiday: act.holiday },
+                              S(), DB.dayMarkers);
+    var reg = 0, ot = 0;
+    c.segments.forEach(function (s) { reg += s.regularHours; ot += s.otHours; });
+    pills.innerHTML = '';
+    pills.appendChild(el('span', 'pill', 'Shift ' + esc(hrs(reg))));
+    pills.appendChild(el('span', 'pill', 'Overtime ' + esc(hrs(ot))));
+    if (c.segments.length > 1) pills.appendChild(el('span', 'pill', 'Crosses midnight'));
+    if (!tick) tick = setInterval(renderLive, 1000);
+  }
+
+  $('punchBtn').addEventListener('click', function () {
+    var act = activeSession();
+    if (act) {
+      act.end = Date.now();
+      DB.prefs.pendingHoliday = false;
+      save();
+      toast('Clocked out at ' + fmtClock(act.end));
+    } else {
+      DB.sessions.push({
+        id: 'p' + Date.now(), start: Date.now(), end: null,
+        holiday: !!DB.prefs.pendingHoliday
+      });
+      save();
+      toast('Clocked in at ' + fmtClock(Date.now()) +
+            (DB.prefs.pendingHoliday ? ' - holiday pay' : ''));
+    }
+    renderAll();
+  });
+
+  // Ticked while clocked in, it changes the running session; ticked beforehand,
+  // it is remembered and applied to the next clock-in.
+  $('holidayChk').addEventListener('change', function () {
+    var act = activeSession(), on = this.checked;
+    if (act) act.holiday = on; else DB.prefs.pendingHoliday = on;
+    save(); renderAll();
+    toast(on ? 'Holiday pay on - every hour at 2x' : 'Holiday pay off');
+  });
+
+  /* ---------------- WEEK ---------------- */
+
+  var weekCursor = null;
+
+  function renderWeek() {
+    if (!weekCursor) weekCursor = E.weekStartKey(todayKey(), 1);
+    var wk = weekFor(weekCursor, true) || emptyWeek(weekCursor);
+    var st = S(), tk = todayKey();
+
+    $('weekLabel').innerHTML = fmtKey(wk.weekStart, true) + ' &ndash; ' + fmtKey(wk.weekEnd, true) +
+      '<div class="sub">paid ' + esc(fmtKey(wk.payday, true)) + '</div>';
+
+    fillStats($('weekHourStats'), [
+      { k: 'Shift', v: hnum(wk.regularHours) + ' h' },
+      { k: '1.5x', v: hnum(wk.ot15) + ' h', cls: wk.ot15 ? 'c15' : '' },
+      { k: '2x', v: hnum(wk.ot2) + ' h', cls: wk.ot2 ? 'c2' : '' }
+    ]);
+
+    var dl = $('weekDays'); dl.innerHTML = '';
+    for (var i = 0; i < 7; i++) {
+      var k = E.addDaysKey(wk.weekStart, i);
+      var d = wk.days[k];
+      var mk = DB.dayMarkers[k];
+      var r = el('div', 'd' + (d ? '' : ' off'));
+      r.appendChild(el('span', 'dn', esc(DOW[E.dowOfKey(k)] + ' ' + E.parseKey(k).d) +
+        (k === tk ? ' <span class="tag">today</span>' : '')));
+      var bits = [];
+      if (d) {
+        if (d.regularHours) bits.push(hrs(d.regularHours) + ' shift');
+        if (d.ot15) bits.push('<span class="c15">' + hrs(d.ot15) + ' @1.5x</span>');
+        if (d.ot2) bits.push('<span class="c2">' + hrs(d.ot2) + ' @2x</span>');
+      }
+      if (mk) bits.push('<span class="tag">' + esc(mk) + '</span>');
+      r.appendChild(el('span', 'num', bits.length ? bits.join(' &middot; ') : '&mdash;'));
+      dl.appendChild(r);
+    }
+
+    var pr = weekPay(wk), pay = pr.pay;
+    // A finished week is a fact; the current and future ones are projections,
+    // because the base below is the whole week's even if it is only Tuesday.
+    var weekOver = E.daysBetweenKeys(wk.weekEnd, tk) > 0;
+    $('weekPayTitle').textContent = weekOver ? 'What this week paid' : 'Projected pay for this week';
+
+    var wpNode = $('weekPay'); wpNode.innerHTML = '';
+    if (!weekOver && !pr.override) {
+      wpNode.appendChild(el('div', 'sub', 'Projected: the full week’s base, which assumes you ' +
+        'work your remaining shifts, plus only the overtime logged so far. ' +
+        'Earned so far is below.'));
+    }
+    if (pr.override) {
+      wpNode.appendChild(el('div', 'warnbox', 'This week is set by a manual override' +
+        (pr.override.note ? ' (' + esc(pr.override.note) + ')' : '') +
+        ', so the hours above are not what it pays. Delete the override under Paychecks to use the punches.'));
+    }
+    var lessBits = [];
+    if (pay.unpaidDays) lessBits.push(pay.unpaidDays + ' unpaid day' + (pay.unpaidDays > 1 ? 's' : ''));
+    if (pay.unpaidHours) lessBits.push(hrs(pay.unpaidHours) + ' unpaid');
+    row(wpNode, 'Base' + (lessBits.length ? ' (less ' + lessBits.join(' and ') + ')' : ''),
+        money(pay.baseGross));
+    row(wpNode, hnum(pay.ot15Hours) + ' h x ' + rate(pay.ot15Rate) + ' (1.5x)', money(pay.ot15Pay), 'c15');
+    row(wpNode, hnum(pay.ot2Hours) + ' h x ' + rate(pay.ot2Rate) + ' (2x)', money(pay.ot2Pay), 'c2');
+    row(wpNode, 'Gross', money(pay.gross), 'total');
+    row(wpNode, 'Net after ' + hnum(st.taxRate) + '% tax', money(pay.net), 'total pos');
+
+    // Earned so far: the base accrues a day at a time, OT is already banked.
+    var td = $('weekToDate'); td.innerHTML = '';
+    var baseDaysSoFar = 0, baseDaysTotal = 0;
+    for (var j = 0; j < 7; j++) {
+      var kk = E.addDaysKey(wk.weekStart, j);
+      if (E.dayKind(kk, st) !== 'scheduled') continue;
+      if (DB.dayMarkers[kk] === 'unpaid') continue;
+      baseDaysTotal++;
+      if (E.daysBetweenKeys(kk, tk) >= 0) baseDaysSoFar++;
+    }
+    var baseSoFar = baseDaysTotal ? pay.baseGross * (baseDaysSoFar / baseDaysTotal) : 0;
+    var otSoFar = pay.ot15Pay + pay.ot2Pay;
+    var grossSoFar = baseSoFar + otSoFar;
+    row(td, 'Base accrued (' + baseDaysSoFar + ' of ' + baseDaysTotal + ' days)', money(baseSoFar));
+    row(td, 'Overtime banked', money(otSoFar));
+    row(td, 'Gross to date', money(grossSoFar), 'total');
+    row(td, 'Net to date', money(grossSoFar * (1 - (st.taxRate || 0) / 100)), 'total pos');
+    td.appendChild(el('div', 'sub', 'The full week pays the flat base of ' +
+      esc(money(pay.baseGross)) + ' regardless of hours; this card just spreads it over the week.'));
+  }
+
+  $('weekPrev').addEventListener('click', function () { weekCursor = E.addDaysKey(weekCursor, -7); renderWeek(); });
+  $('weekNext').addEventListener('click', function () { weekCursor = E.addDaysKey(weekCursor, 7); renderWeek(); });
+  $('weekThis').addEventListener('click', function () { weekCursor = E.weekStartKey(todayKey(), 1); renderWeek(); });
+
+  /* ---------------- PAYCHECKS ---------------- */
+
+  function renderChecks() {
+    $('assumedOt').value = DB.prefs.assumedOt15;
+    $('assumedOt2').value = DB.prefs.assumedOt2;
+    $('weeksAhead').value = DB.prefs.weeksAhead;
+    $('weeksBack').value = DB.prefs.weeksBack;
+
+    var list = $('checkList'); list.innerHTML = '';
+    var all = paychecks(true), tk = todayKey(), st = S();
+    var warnShare = (DB.prefs.warnShare || 0) / 100;
+
+    all.forEach(function (p) {
+      var d = el('details', 'check');
+      var isNext = !p.isPast && E.daysBetweenKeys(tk, p.payday) >= 0;
+      if (isNext && !renderChecks._opened) { d.open = true; renderChecks._opened = true; }
+
+      var tag = p.source === 'actual' ? '<span class="tag actual">logged</span>'
+              : p.source === 'override' ? '<span class="tag over">override</span>'
+              : '<span class="tag proj">projected</span>';
+      var sum = el('summary');
+      sum.innerHTML = '<span><strong>' + esc(fmtKey(p.payday, true)) + '</strong> ' + tag +
+        '<div class="sub">week ' + esc(fmtKey(p.weekStart)) + '&ndash;' + esc(fmtKey(p.weekEnd)) +
+        ' &middot; bills ' + esc(money(p.billsTotal)) + '</div></span>' +
+        '<span class="num ' + (p.savings >= 0 ? 'pos' : 'neg') + '"><strong>' +
+        esc(money(p.savings)) + '</strong></span>';
+      d.appendChild(sum);
+
+      var b = el('div', 'body');
+      row(b, 'Gross', money(p.gross));
+      row(b, 'Net after ' + hnum(st.taxRate) + '% tax', money(p.net));
+      if (p.pay.ot15Hours) row(b, hnum(p.pay.ot15Hours) + ' h at 1.5x', money(p.pay.ot15Pay), 'c15');
+      if (p.pay.ot2Hours) row(b, hnum(p.pay.ot2Hours) + ' h at 2x', money(p.pay.ot2Pay), 'c2');
+      b.appendChild(el('h3', null, 'Bills ' + esc(fmtKey(p.windowStart)) + ' &ndash; ' + esc(fmtKey(p.windowEnd))));
+      if (!p.bills.length) b.appendChild(el('div', 'sub', 'Nothing due in this window.'));
+      p.bills.forEach(function (bl) { row(b, esc(bl.label) + ' <span class="sub">' + esc(fmtKey(bl.dateKey)) + '</span>', money(bl.amount)); });
+      row(b, 'Bills total', money(p.billsTotal), 'total');
+      row(b, 'Potential savings', money(p.savings), 'total ' + (p.savings >= 0 ? 'pos' : 'neg'));
+      row(b, 'Running savings', money(p.runningSavings), 'total');
+      if (p.net > 0 && p.billsTotal / p.net >= warnShare && warnShare > 0) {
+        b.appendChild(el('div', 'warnbox', 'Heavy check: bills are ' +
+          Math.round(100 * p.billsTotal / p.net) + '% of net pay.'));
+      }
+      if (p.source === 'override') {
+        b.appendChild(el('div', 'sub', 'This week uses a manual override. Delete it under Week overrides to use logged punches instead.'));
+      }
+      d.appendChild(b);
+      list.appendChild(d);
+    });
+    renderChecks._opened = false;
+    $('runningTotal').textContent = all.length ? money(all[all.length - 1].runningSavings) : money(0);
+
+    // Overrides
+    var ol = $('overrideList'); ol.innerHTML = '';
+    var keys = Object.keys(DB.weekOverrides).sort();
+    if (!keys.length) ol.appendChild(el('div', 'sub', 'No overrides. Every week without punches uses the assumed OT above.'));
+    keys.forEach(function (ws) {
+      var ov = DB.weekOverrides[ws];
+      var it = el('div', 'item');
+      var desc = ov.baseOnly ? 'base only, no overtime'
+        : hnum(ov.ot15 || 0) + ' h at 1.5x' + (ov.ot2 ? ', ' + hnum(ov.ot2) + ' h at 2x' : '');
+      it.innerHTML = '<div class="top"><span class="name">' + esc(fmtKeyYear(ws)) +
+        '</span><span class="sub">paid ' + esc(fmtKey(E.paydayForWeekStart(ws))) + '</span></div>' +
+        '<div class="meta">' + esc(desc) + (ov.note ? ' &middot; ' + esc(ov.note) : '') +
+        (ov.unpaidDays ? ' &middot; ' + ov.unpaidDays + ' unpaid day' + (ov.unpaidDays > 1 ? 's' : '') : '') +
+        (ov.unpaidHours ? ' &middot; ' + esc(hrs(ov.unpaidHours)) + ' unpaid' : '') + '</div>';
+      var acts = el('div', 'acts');
+      var ed = el('button', 'btn sm', 'Edit');
+      ed.onclick = function () { overrideDialog(ws); };
+      var rm = el('button', 'btn sm danger', 'Delete');
+      rm.onclick = function () {
+        confirmThen('Delete the override for the week of ' + fmtKeyYear(ws) + '?', function () {
+          delete DB.weekOverrides[ws]; save(); renderAll(); toast('Override deleted');
+        });
+      };
+      acts.appendChild(ed); acts.appendChild(rm);
+      it.appendChild(acts);
+      ol.appendChild(it);
+    });
+  }
+
+  function overrideDialog(ws) {
+    var ov = ws ? DB.weekOverrides[ws] : {};
+    openForm(ws ? 'Override week of ' + fmtKeyYear(ws) : 'Override a week', [
+      { key: 'week', label: 'Any date in the week (snaps to Monday)', type: 'date', value: ws || todayKey() },
+      { key: 'baseOnly', label: 'Base only (no overtime)', type: 'checkbox', value: !!ov.baseOnly },
+      { key: 'ot15', label: 'Overtime hours at 1.5x', type: 'number', step: 0.25, min: 0, value: ov.ot15 == null ? '' : ov.ot15 },
+      { key: 'ot2', label: 'Overtime hours at 2x', type: 'number', step: 0.25, min: 0, value: ov.ot2 == null ? '' : ov.ot2 },
+      { key: 'unpaidDays', label: 'Unpaid whole days this week', type: 'number', step: 1, min: 0, max: 7, value: ov.unpaidDays || 0 },
+      { key: 'unpaidH', label: 'Unpaid hours (on top of those days)', type: 'number', step: 1, min: 0,
+        value: Math.floor(ov.unpaidHours || 0) || 0 },
+      { key: 'unpaidM', label: 'Unpaid minutes', type: 'number', step: 1, min: 0, max: 59,
+        value: Math.round(((ov.unpaidHours || 0) % 1) * 60) || 0 },
+      { key: 'html', type: 'html', html: 'Unpaid time comes off the base at ' +
+        esc(money(E.baseHourly(S()))) + ' an hour.' },
+      { key: 'note', label: 'Note', type: 'text', value: ov.note || '' }
+    ], function (v) {
+      if (!v.week) return;
+      var newWs = E.weekStartKey(v.week, 1);
+      if (ws && ws !== newWs) delete DB.weekOverrides[ws];
+      DB.weekOverrides[newWs] = {
+        baseOnly: !!v.baseOnly,
+        ot15: v.baseOnly ? 0 : (v.ot15 || 0),
+        ot2: v.baseOnly ? 0 : (v.ot2 || 0),
+        unpaidDays: v.unpaidDays || 0,
+        unpaidHours: Math.max(0, (v.unpaidH || 0) + (v.unpaidM || 0) / 60),
+        note: v.note || ''
+      };
+      save(); renderAll(); toast('Override saved for week of ' + fmtKey(newWs));
+    });
+  }
+  $('addOverride').addEventListener('click', function () { overrideDialog(null); });
+
+  ['assumedOt', 'assumedOt2', 'weeksAhead', 'weeksBack'].forEach(function (id) {
+    $(id).addEventListener('change', function () {
+      var map = { assumedOt: 'assumedOt15', assumedOt2: 'assumedOt2',
+                  weeksAhead: 'weeksAhead', weeksBack: 'weeksBack' };
+      var val = +this.value;
+      if (!isFinite(val) || val < 0) val = 0;
+      DB.prefs[map[id]] = val;
+      save(); renderChecks();
+    });
+  });
+
+  /* ---------------- BILLS ---------------- */
+
+  function renderBills() {
+    var bl = $('billList'); bl.innerHTML = '';
+    var total = 0;
+    DB.bills.slice().sort(function (a, b) { return a.dueDay - b.dueDay; }).forEach(function (b) {
+      total += b.amount;
+      var it = el('div', 'item');
+      it.innerHTML = '<div class="top"><span class="name">' + esc(b.label) +
+        '</span><span class="num">' + esc(money(b.amount)) + '</span></div>' +
+        '<div class="meta">Due the ' + ordinal(b.dueDay) +
+        ((b.skips || []).length ? ' &middot; skipped ' + (b.skips || []).map(monthLabel).join(', ') : '') + '</div>';
+      var acts = el('div', 'acts');
+      [['Edit', function () { billDialog(b.id); }],
+       ['Skip a month', function () { skipDialog(b.id); }],
+       ['Delete', function () {
+         confirmThen('Delete "' + b.label + '"?', function () {
+           DB.bills = DB.bills.filter(function (x) { return x.id !== b.id; });
+           save(); renderAll(); toast('Bill deleted');
+         });
+       }]].forEach(function (pair, i) {
+        var btn = el('button', 'btn sm' + (i === 2 ? ' danger' : ''), pair[0]);
+        btn.onclick = pair[1];
+        acts.appendChild(btn);
+      });
+      it.appendChild(acts);
+      bl.appendChild(it);
+    });
+    if (!DB.bills.length) bl.appendChild(el('div', 'empty', 'No bills yet.'));
+    $('billTotal').textContent = money(total);
+    renderRange();
+  }
+
+  function ordinal(n) {
+    var s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  }
+  function monthLabel(tag) {
+    var a = tag.split('-');
+    return MON[+a[1] - 1] + ' ' + a[0];
+  }
+
+  function billDialog(id) {
+    var b = id ? DB.bills.filter(function (x) { return x.id === id; })[0] : null;
+    openForm(b ? 'Edit bill' : 'Add bill', [
+      { key: 'label', label: 'Name', type: 'text', value: b ? b.label : '' },
+      { key: 'dueDay', label: 'Due day of the month (1-31)', type: 'number', step: 1, min: 1, max: 31, value: b ? b.dueDay : 1 },
+      { key: 'amount', label: 'Amount', type: 'number', step: 0.01, min: 0, value: b ? b.amount : '' },
+      { key: 'html', type: 'html', html: 'A day past the end of a short month lands on that month&rsquo;s last day.' }
+    ], function (v) {
+      var day = Math.min(31, Math.max(1, Math.round(v.dueDay || 1)));
+      var amt = +v.amount || 0;
+      var label = (v.label || '').trim() || 'Bill (' + ordinal(day) + ')';
+      if (b) { b.label = label; b.dueDay = day; b.amount = amt; }
+      else DB.bills.push({ id: 'b' + Date.now(), label: label, dueDay: day, amount: amt, skips: [] });
+      save(); renderAll(); toast('Bill saved');
+    });
+  }
+  $('addBill').addEventListener('click', function () { billDialog(null); });
+
+  function skipDialog(id) {
+    var b = DB.bills.filter(function (x) { return x.id === id; })[0];
+    if (!b) return;
+    var tk = E.parseKey(todayKey());
+    openForm('Skip ' + b.label + ' for one month', [
+      { key: 'month', label: 'Month to skip (YYYY-MM)', type: 'text', value: tk.y + '-' + E.pad(tk.m) },
+      { key: 'html', type: 'html', html: 'Entering a month already skipped un-skips it.' +
+        ((b.skips || []).length ? '<br>Currently skipped: ' + esc((b.skips || []).join(', ')) : '') }
+    ], function (v) {
+      var m = (v.month || '').trim();
+      if (!/^\d{4}-\d{2}$/.test(m)) { toast('Use the format 2026-10'); return; }
+      b.skips = b.skips || [];
+      var i = b.skips.indexOf(m);
+      if (i >= 0) { b.skips.splice(i, 1); toast('Skip removed for ' + monthLabel(m)); }
+      else { b.skips.push(m); b.skips.sort(); toast(b.label + ' skipped for ' + monthLabel(m)); }
+      save(); renderAll();
+    });
+  }
+
+  function renderRange() {
+    var from = $('rangeFrom').value, to = $('rangeTo').value;
+    var out = $('rangeResult'); out.innerHTML = '';
+    if (!from || !to) { out.appendChild(el('div', 'sub', 'Pick a start and end date.')); return; }
+    if (E.daysBetweenKeys(from, to) < 0) { out.appendChild(el('div', 'sub', 'The end date is before the start date.')); return; }
+    var res = E.billsInRange(DB.bills, from, to, DB.prefs.excludeBillIds || []);
+    if (!res.items.length) { out.appendChild(el('div', 'sub', 'No bills due in this range.')); return; }
+    res.items.forEach(function (bl) {
+      var r = el('div', 'rowline');
+      var left = el('label');
+      left.style.cssText = 'display:flex;align-items:center;gap:10px;cursor:pointer';
+      var cb = el('input'); cb.type = 'checkbox'; cb.checked = !bl.excluded;
+      cb.onchange = function () {
+        var ex = (DB.prefs.excludeBillIds || []).slice();
+        var i = ex.indexOf(bl.id);
+        if (cb.checked) { if (i >= 0) ex.splice(i, 1); }
+        else if (i < 0) ex.push(bl.id);
+        DB.prefs.excludeBillIds = ex;
+        save(); renderRange();
+      };
+      left.appendChild(cb);
+      left.appendChild(el('span', null, esc(bl.label) + ' <span class="sub">' + esc(fmtKey(bl.dateKey)) + '</span>'));
+      r.appendChild(left);
+      r.appendChild(el('span', 'num' + (bl.excluded ? ' sub' : ''), esc(money(bl.amount))));
+      out.appendChild(r);
+    });
+    row(out, 'Total (' + (E.daysBetweenKeys(from, to) + 1) + ' days)', money(res.total), 'total');
+    if ((DB.prefs.excludeBillIds || []).length) {
+      var clr = el('button', 'btn sm', 'Clear exclusions');
+      clr.onclick = function () { DB.prefs.excludeBillIds = []; save(); renderRange(); };
+      var w = el('div', 'btnrow'); w.style.marginTop = '10px'; w.appendChild(clr);
+      out.appendChild(w);
+    }
+  }
+  $('rangeFrom').addEventListener('change', renderRange);
+  $('rangeTo').addEventListener('change', renderRange);
+  $('rangeTueTue').addEventListener('click', function () {
+    var k = todayKey(), guard = 0;
+    while (E.dowOfKey(k) !== 2 && guard++ < 8) k = E.addDaysKey(k, 1);   // next Tuesday
+    $('rangeFrom').value = k;
+    $('rangeTo').value = E.addDaysKey(k, 6);
+    renderRange();
+  });
+  $('rangeThisMonth').addEventListener('click', function () {
+    var p = E.parseKey(todayKey());
+    $('rangeFrom').value = p.y + '-' + E.pad(p.m) + '-01';
+    $('rangeTo').value = p.y + '-' + E.pad(p.m) + '-' + E.pad(E.daysInMonth(p.y, p.m));
+    renderRange();
+  });
+
+  /* ---------------- PUNCHES ---------------- */
+
+  function renderPunches() {
+    var pl = $('punchList'); pl.innerHTML = '';
+    var list = DB.sessions.slice().sort(function (a, b) { return b.start - a.start; });
+    if (!list.length) { pl.appendChild(el('div', 'empty', 'No punches yet.')); }
+    list.slice(0, 120).forEach(function (s) {
+      var it = el('div', 'item');
+      var dayK = E.dateKey(s.start, TZ());
+      var open = s.end == null;
+      var c = E.classifySession({ start: s.start, end: open ? Date.now() : s.end, holiday: s.holiday },
+                                S(), DB.dayMarkers);
+      var reg = 0, o15 = 0, o2 = 0, byTier = {};
+      c.segments.forEach(function (g) {
+        reg += g.regularHours;
+        byTier[g.tierDay] = (byTier[g.tierDay] || 0) + g.otHours;
+      });
+      if (s.holiday) {
+        Object.keys(byTier).forEach(function (t) { o2 += byTier[t]; });
+      } else {
+        Object.keys(byTier).forEach(function (t) {
+          var sp = E.tierDayOt(t, byTier[t], S());
+          o15 += sp.ot15; o2 += sp.ot2;
+        });
+      }
+      it.innerHTML = '<div class="top"><span class="name">' + esc(fmtKey(dayK, true)) +
+        '</span><span class="num">' + esc(hrs(c.totalHours)) + (open ? ' <span class="tag">running</span>' : '') +
+        (s.holiday ? ' <span class="tag over">holiday</span>' : '') +
+        '</span></div><div class="meta">' + esc(fmtClock(s.start)) + ' &rarr; ' +
+        (open ? 'still clocked in' : esc(fmtClock(s.end))) +
+        ' &middot; ' + esc(hrs(reg)) + ' shift' +
+        (o15 ? ' &middot; <span class="c15">' + esc(hrs(o15)) + ' @1.5x</span>' : '') +
+        (o2 ? ' &middot; <span class="c2">' + esc(hrs(o2)) + ' @2x</span>' : '') +
+        '</div>';
+      var acts = el('div', 'acts');
+      var ed = el('button', 'btn sm', 'Edit');
+      ed.onclick = function () { punchDialog(s.id); };
+      acts.appendChild(ed);
+      if (open) {
+        var oc = el('button', 'btn sm', 'Clock out now');
+        oc.onclick = function () { s.end = Date.now(); save(); renderAll(); toast('Clocked out'); };
+        acts.appendChild(oc);
+      }
+      var rm = el('button', 'btn sm danger', 'Delete');
+      rm.onclick = function () {
+        confirmThen('Delete the punch on ' + fmtKey(dayK, true) + '?', function () {
+          DB.sessions = DB.sessions.filter(function (x) { return x.id !== s.id; });
+          save(); renderAll(); toast('Punch deleted');
+        });
+      };
+      acts.appendChild(rm);
+      it.appendChild(acts);
+      pl.appendChild(it);
+    });
+
+    var ml = $('markerList'); ml.innerHTML = '';
+    var mks = Object.keys(DB.dayMarkers).filter(function (k) { return DB.dayMarkers[k]; }).sort().reverse();
+    if (!mks.length) ml.appendChild(el('div', 'sub', 'No PTO, holiday or unpaid days marked.'));
+    mks.forEach(function (k) {
+      var it = el('div', 'item');
+      it.innerHTML = '<div class="top"><span class="name">' + esc(fmtKeyYear(k)) +
+        '</span><span class="tag">' + esc(DB.dayMarkers[k]) + '</span></div>';
+      var acts = el('div', 'acts');
+      var ed = el('button', 'btn sm', 'Change');
+      ed.onclick = function () { markerDialog(k); };
+      var rm = el('button', 'btn sm danger', 'Remove');
+      rm.onclick = function () { delete DB.dayMarkers[k]; save(); renderAll(); toast('Marker removed'); };
+      acts.appendChild(ed); acts.appendChild(rm);
+      it.appendChild(acts);
+      ml.appendChild(it);
+    });
+  }
+
+  function punchDialog(id) {
+    var s = id ? DB.sessions.filter(function (x) { return x.id === id; })[0] : null;
+    var now = Date.now();
+    var defStart = s ? s.start : inputToMs(todayKey() + 'T' + sched().shiftStart);
+    openForm(s ? 'Edit punch' : 'Add a punch', [
+      { key: 'start', label: 'Clocked in', type: 'datetime-local', value: msToInput(defStart) },
+      { key: 'end', label: 'Clocked out (leave blank to keep it running)', type: 'datetime-local',
+        value: s && s.end != null ? msToInput(s.end) : (s ? '' : msToInput(inputToMs(todayKey() + 'T' + sched().shiftEnd))) },
+      { key: 'holiday', label: 'Holiday pay (every hour at 2x)', type: 'checkbox',
+        value: s ? !!s.holiday : false },
+      { key: 'html', type: 'html', html: 'Times are ' + esc(TZ()) + ' wall clock, whatever this device is set to.' }
+    ], function (v) {
+      var st = inputToMs(v.start);
+      if (st == null) { toast('A clock-in time is required'); return; }
+      var en = v.end ? inputToMs(v.end) : null;
+      if (en != null && en <= st) { toast('Clock-out must be after clock-in'); return; }
+      if (en == null && activeSession() && (!s || activeSession().id !== s.id)) {
+        toast('Already clocked in - close that punch first'); return;
+      }
+      if (s) { s.start = st; s.end = en; s.holiday = !!v.holiday; }
+      else DB.sessions.push({ id: 'p' + now, start: st, end: en, holiday: !!v.holiday });
+      save(); renderAll(); toast('Punch saved');
+    });
+  }
+  $('addPunch').addEventListener('click', function () { punchDialog(null); });
+  $('addPunchHome').addEventListener('click', function () { punchDialog(null); });
+
+  function markerDialog(k) {
+    openForm('Mark a day', [
+      { key: 'day', label: 'Date', type: 'date', value: k || todayKey() },
+      { key: 'kind', label: 'Type', type: 'select', value: k ? DB.dayMarkers[k] : 'holiday', options: [
+        { value: 'holiday', label: 'Holiday not worked (pays its day of base)' },
+        { value: 'pto', label: 'PTO' },
+        { value: 'unpaid', label: 'Unpaid day (cuts the base)' },
+        { value: '', label: 'Clear the marker' }
+      ] },
+      { key: 'html', type: 'html', html: 'To claim 2x for a holiday you actually worked, ' +
+        'use the Holiday pay switch on the Clock screen instead.' },
+      { key: 'html', type: 'html', html: 'An unpaid day removes one day of base pay (' +
+        esc(money(E.dailyBase(S()))) + ') from that week.' }
+    ], function (v) {
+      if (!v.day) return;
+      if (k && k !== v.day) delete DB.dayMarkers[k];
+      if (v.kind) DB.dayMarkers[v.day] = v.kind; else delete DB.dayMarkers[v.day];
+      save(); renderAll(); toast('Day marked');
+    });
+  }
+  $('markDay').addEventListener('click', function () { markerDialog(null); });
+  $('markDayHome').addEventListener('click', function () { markerDialog(null); });
+
+  /* ---------------- SETTINGS ---------------- */
+
+  var NUM_SETTINGS = ['hourlyRate', 'taxRate', 'fullWeekHours', 'ot15Multiplier',
+    'ot2Multiplier', 'scheduledOt15Cap', 'offDayOt15Cap', 'lapseHours',
+    'graceMinutes', 'punchRoundingMinutes'];
+  var TXT_SETTINGS = ['timezone'];
+  var SEL_SETTINGS = ['postMidnightDay'];
+
+  var DOWNAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var BOOL_SETTINGS = ['ptoPaysBase', 'premiumOnOvertime'];
+
+  function buildScheduleControls() {
+    var sel = $('s_schedulePreset');
+    if (!sel.options.length) {
+      E.SCHEDULE_PRESETS.forEach(function (p) {
+        var o = el('option', null, esc(p.name)); o.value = p.id; sel.appendChild(o);
+      });
+      var c = el('option', null, 'Custom'); c.value = 'custom'; sel.appendChild(c);
+      sel.addEventListener('change', function () {
+        if (sel.value === 'custom') return;
+        var p = E.presetById(sel.value);
+        $('s_shiftStart').value = p.shiftStart;
+        $('s_shiftEnd').value = p.shiftEnd;
+        $('s_anchor').value = p.anchor === 'start' ? 'start' : 'end';
+        readDayBoxes(true, p.days);
+        describeSchedule();
+      });
+    }
+    var box = $('s_days');
+    if (!box.children.length) {
+      for (var i = 0; i < 7; i++) {
+        (function (d) {
+          var lab = el('label', 'daybox');
+          var cb = el('input'); cb.type = 'checkbox'; cb.id = 's_day' + d;
+          cb.addEventListener('change', function () {
+            $('s_schedulePreset').value = 'custom';
+            describeSchedule();
+          });
+          lab.appendChild(cb);
+          lab.appendChild(el('span', null, DOWNAMES[d]));
+          box.appendChild(lab);
+        })((i + 1) % 7);   // show Mon first
+      }
+    }
+    ['s_shiftStart', 's_shiftEnd', 's_anchor'].forEach(function (id) {
+      if ($(id).dataset.wired) return;
+      $(id).dataset.wired = '1';
+      $(id).addEventListener('change', function () {
+        $('s_schedulePreset').value = 'custom';
+        describeSchedule();
+      });
+    });
+  }
+
+  function readDayBoxes(write, days) {
+    var out = [];
+    for (var d = 0; d < 7; d++) {
+      var cb = $('s_day' + d);
+      if (!cb) continue;
+      if (write) cb.checked = days.indexOf(d) !== -1;
+      if (cb.checked) out.push(d);
+    }
+    return out;
+  }
+
+  // The schedule the settings form is currently showing, without saving it.
+  function formSchedule() {
+    var id = $('s_schedulePreset').value;
+    return {
+      id: id,
+      name: id === 'custom' ? 'Custom' : E.presetById(id).name,
+      days: readDayBoxes(false),
+      shiftStart: $('s_shiftStart').value || '09:00',
+      shiftEnd: $('s_shiftEnd').value || '17:00',
+      anchor: $('s_anchor').value
+    };
+  }
+
+  function describeSchedule() {
+    var sc = formSchedule();
+    if (!sc.days.length) return;
+    // The lapse only does anything for an overnight shift named by its end day:
+    // it is what moves that shift's day over. Hide it where it is inert.
+    var endAnch = E.endAnchored(sc);
+    $('anchorField').hidden = !E.isOvernight(sc);
+    $('lapseField').hidden = !endAnch;
+    $('lapseNote').hidden = !endAnch;
+    if (endAnch) {
+      var a = sc.shiftStart.split(':');
+      var mins = ((+a[0] * 60 + (+a[1] || 0)) - (S().lapseHours || 0) * 60 + 1440) % 1440;
+      var h = Math.floor(mins / 60), m = mins % 60;
+      $('lapseNote').innerHTML = 'Your shift day turns over at <strong>' + (h % 12 || 12) + ':' +
+        E.pad(m) + ' ' + (h < 12 ? 'AM' : 'PM') + '</strong> &mdash; shift start minus the lapse. ' +
+        'Before that counts as the previous day; after it counts toward the next shift.';
+    }
+  }
+
+  function renderSettings() {
+    var st = S();
+    buildScheduleControls();
+    NUM_SETTINGS.forEach(function (k) { $('s_' + k).value = st[k]; });
+    TXT_SETTINGS.forEach(function (k) { $('s_' + k).value = st[k]; });
+    SEL_SETTINGS.forEach(function (k) { $('s_' + k).value = st[k]; });
+    BOOL_SETTINGS.forEach(function (k) { $('s_' + k).value = st[k] ? '1' : '0'; });
+    $('s_premiumMode').value = st.premiumMode;
+    $('s_fixedPremiumPct').value = st.fixedPremiumPct;
+    $('s_schedulePreset').value = st.schedule.id || 'custom';
+    $('s_shiftStart').value = st.schedule.shiftStart;
+    $('s_shiftEnd').value = st.schedule.shiftEnd;
+    $('s_anchor').value = st.schedule.anchor === 'start' ? 'start' : 'end';
+    readDayBoxes(true, st.schedule.days || []);
+    $('s_warnShare').value = DB.prefs.warnShare;
+    describeSchedule();
+    renderDerived();
+  }
+
+  $('saveSettings').addEventListener('click', function () {
+    var st = S(), sc = formSchedule();
+    if (!sc.days.length) { toast('Pick at least one scheduled day'); return; }
+    st.schedule = sc;
+    NUM_SETTINGS.forEach(function (k) {
+      var v = +$('s_' + k).value;
+      if (isFinite(v) && v >= 0) st[k] = v;
+    });
+    TXT_SETTINGS.forEach(function (k) {
+      var v = $('s_' + k).value.trim();
+      if (v) st[k] = v;
+    });
+    SEL_SETTINGS.forEach(function (k) { st[k] = $('s_' + k).value; });
+    BOOL_SETTINGS.forEach(function (k) { st[k] = $('s_' + k).value === '1'; });
+    st.premiumMode = $('s_premiumMode').value;
+    var fp = +$('s_fixedPremiumPct').value;
+    if (isFinite(fp) && fp >= 0) st.fixedPremiumPct = fp;
+    var ws = +$('s_warnShare').value;
+    DB.prefs.warnShare = isFinite(ws) ? ws : 40;
+    try { E.localParts(Date.now(), st.timezone); }
+    catch (err) { st.timezone = 'America/Detroit'; toast('Unknown time zone - reset to America/Detroit'); }
+    DB.prefs.setupDone = true;
+    save(); renderAll(); toast('Rules saved');
+  });
+
+  $('resetSettings').addEventListener('click', function () {
+    confirmThen('Restore all pay rules to their defaults? That clears your rate and tax too. Punches and bills are untouched.', function () {
+      DB.settings = JSON.parse(JSON.stringify(E.DEFAULT_SETTINGS));
+      DB.prefs.warnShare = DEFAULT_PREFS.warnShare;
+      save(); renderAll(); toast('Defaults restored');
+    });
+  });
+
+  /* ---- what the rules work out to, for the person who entered them ---- */
+  function renderDerived() {
+    var out = $('selfTest'); out.innerHTML = '';
+    var st = S(), sc = st.schedule;
+    if (!st.hourlyRate) {
+      out.appendChild(el('div', 'empty', 'Set your hourly rate above and this fills in.'));
+      return;
+    }
+    var prem = E.premiumFor(st);
+    row(out, 'Shift length', hnum(E.dailyHoursOf(sc)) + ' h');
+    row(out, 'Scheduled hours a week', hnum(E.scheduledWeeklyHours(sc)) + ' h');
+    row(out, 'Short-week premium', hnum(Math.round(prem * 1e6) / 1e4) + '%');
+    row(out, 'Base for one scheduled day', money(E.dailyBase(st)));
+    row(out, 'Overtime at 1.5x', rate(st.hourlyRate * st.ot15Multiplier) + '/h', 'c15');
+    row(out, 'Overtime at 2x', rate(st.hourlyRate * st.ot2Multiplier) + '/h', 'c2');
+    var full = E.payFromHours({ regularHours: E.scheduledWeeklyHours(sc), ot15: 0, ot2: 0 }, st, {});
+    row(out, 'A plain week, gross', money(full.gross), 'total');
+    row(out, 'A plain week, net after ' + hnum(st.taxRate) + '% tax', money(full.net), 'total pos');
+    if (prem > 0) {
+      out.appendChild(el('div', 'sub', 'Your schedule is short of a ' + hnum(st.fullWeekHours) +
+        '-hour week, so the premium lifts each scheduled day to make it whole.'));
+    }
+  }
+
+  /* ---------------- FIRST RUN ---------------- */
+
+  function runSetup() {
+    var st = S();
+    openForm('Set up your pay', [
+      { key: 'html', type: 'html', html: 'Nothing here leaves your phone. Everything can be changed later under More.' },
+      { key: 'preset', label: 'Shift pattern', type: 'select', value: st.schedule.id,
+        options: E.SCHEDULE_PRESETS.map(function (p) { return { value: p.id, label: p.name }; }) },
+      { key: 'rate', label: 'Hourly rate', type: 'number', step: 0.01, min: 0, value: st.hourlyRate || '' },
+      { key: 'tax', label: 'Tax %', type: 'number', step: 0.5, min: 0, max: 100,
+        value: st.taxRate || 0 }
+    ], function (v) {
+      st.schedule = JSON.parse(JSON.stringify(E.presetById(v.preset)));
+      if (v.rate != null && v.rate > 0) st.hourlyRate = v.rate;
+      if (v.tax != null && v.tax >= 0) st.taxRate = v.tax;
+      DB.prefs.setupDone = true;
+      save(); renderAll();
+      toast(st.hourlyRate ? 'All set' : 'Add your rate under More when you have it');
+    }, 'Save');
+  }
+  $('setupBtn').addEventListener('click', runSetup);
+
+  /* ---------------- BACKUP ---------------- */
+
+  $('exportBtn').addEventListener('click', function () {
+    var json = JSON.stringify(DB, null, 2);
+    var name = 'pay-tracker-' + todayKey() + '.json';
+    try {
+      var url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+      var a = el('a'); a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      toast('Exported ' + name);
+    } catch (err) {
+      openForm('Export', [{ key: 'html', type: 'html', html: '<textarea readonly>' + esc(json) + '</textarea>' }],
+        function () {}, 'Done');
+    }
+  });
+
+  $('importBtn').addEventListener('click', function () {
+    $('dlgTitle').textContent = 'Import JSON';
+    $('dlgOk').textContent = 'Replace my data';
+    var body = $('dlgBody');
+    body.innerHTML = '<label class="field"><span>Pick a backup file</span>' +
+      '<input type="file" id="f_file" accept="application/json,.json"></label>' +
+      '<label class="field"><span>...or paste the JSON</span><textarea id="f_text"></textarea></label>' +
+      '<div class="sub">This replaces everything currently stored.</div>';
+    $('f_file').addEventListener('change', function () {
+      var f = this.files && this.files[0];
+      if (!f) return;
+      var fr = new FileReader();
+      fr.onload = function () { $('f_text').value = String(fr.result); };
+      fr.readAsText(f);
+    });
+    dlgHandler = function (okd) {
+      if (!okd) return;
+      var txt = $('f_text') ? $('f_text').value : '';
+      try {
+        var d = JSON.parse(txt);
+        if (!d || typeof d !== 'object') throw new Error('not an object');
+        DB = {
+          v: DB_VERSION,
+          settings: Object.assign({}, E.DEFAULT_SETTINGS, d.settings || {}),
+          bills: Array.isArray(d.bills) ? d.bills : [],
+          sessions: Array.isArray(d.sessions) ? d.sessions : [],
+          dayMarkers: d.dayMarkers || {},
+          weekOverrides: d.weekOverrides || {},
+          prefs: Object.assign({}, DEFAULT_PREFS, d.prefs || {})
+        };
+        save(); applyTheme(); renderAll(); toast('Imported');
+      } catch (err) {
+        toast('That is not valid backup JSON');
+        console.error(err);
+      }
+    };
+    $('dlg').showModal();
+  });
+
+  $('wipeBtn').addEventListener('click', function () {
+    confirmThen('Erase every punch, bill and setting stored in this browser? Export first if you want a copy.', function () {
+      confirmThen('Really erase everything? This cannot be undone.', function () {
+        localStorage.removeItem(KEY);
+        DB = freshDB();
+        save(); applyTheme(); renderAll(); toast('All data erased');
+      });
+    });
+  });
+
+  /* ---------------- theme & nav ---------------- */
+
+  function applyTheme() {
+    var t = DB.prefs.theme === 'light' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+    var mt = document.querySelector('meta[name="theme-color"]');
+    if (mt) mt.setAttribute('content', t === 'light' ? '#f4f5f7' : '#0f1115');
+    $('themeBtn').innerHTML = t === 'light' ? '&#9790;' : '&#9728;';
+    $('themeBtn').title = t === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
+  }
+  $('themeBtn').addEventListener('click', function () {
+    DB.prefs.theme = DB.prefs.theme === 'light' ? 'dark' : 'light';
+    save(); applyTheme();
+  });
+
+  var VIEWS = ['home', 'week', 'checks', 'bills', 'more'];
+  var current = 'home';
+  function show(v) {
+    if (VIEWS.indexOf(v) === -1) v = 'home';
+    current = v;
+    VIEWS.forEach(function (x) { $('v-' + x).hidden = x !== v; });
+    Array.prototype.forEach.call($('tabs').children, function (b) {
+      if (b.dataset.view === v) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+      if (b.dataset.view === v) $('viewTitle').textContent = b.dataset.title;
+    });
+    window.scrollTo(0, 0);
+    renderAll();
+  }
+  Array.prototype.forEach.call($('tabs').children, function (b) {
+    b.addEventListener('click', function () { show(b.dataset.view); });
+  });
+
+  function renderAll() {
+    if (current === 'home') renderHome();
+    else if (current === 'week') renderWeek();
+    else if (current === 'checks') renderChecks();
+    else if (current === 'bills') renderBills();
+    else if (current === 'more') { renderPunches(); renderSettings(); }
+  }
+
+  /* ---------------- boot ---------------- */
+
+  // Default the range tool to the paycheck window of the next payday.
+  (function seedRange() {
+    var k = todayKey(), guard = 0;
+    while (E.dowOfKey(k) !== 2 && guard++ < 8) k = E.addDaysKey(k, 1);
+    $('rangeFrom').value = k;
+    $('rangeTo').value = E.addDaysKey(k, 6);
+  })();
+
+  applyTheme();
+  save();
+  show('home');
+
+  // A brand-new visitor is asked for their schedule and rate before anything else.
+  if (!DB.prefs.setupDone) setTimeout(runSetup, 250);
+
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) renderAll();
+  });
+
+  window.PayTrackerDebug = {
+    get db() { return DB; },
+    engine: E,
+    paychecks: paychecks,
+    weeks: weeksNow,
+    show: show,
+    reset: function () { DB = freshDB(); save(); applyTheme(); renderAll(); }
+  };
+})();
+</script>
+</body>
+</html>
