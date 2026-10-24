@@ -702,8 +702,8 @@ dialog h2 { margin-bottom: 12px; }
 
 <nav class="tabs" id="tabs">
   <button data-view="home" data-title="Clock"><span class="ic">&#9201;</span>Clock</button>
-  <button data-view="week" data-title="Earned"><span class="ic">&#128197;</span>Earned</button>
-  <button data-view="checks" data-title="Paychecks"><span class="ic">&#128176;</span>Pay</button>
+  <button data-view="week" data-title="Earned"><span class="ic">&#128176;</span>Earned</button>
+  <button data-view="checks" data-title="PayCalc"><span class="ic">&#128197;</span>PayCalc</button>
   <button data-view="bills" data-title="Bills"><span class="ic">&#129534;</span>Bills</button>
   <button data-view="more" data-title="Settings"><span class="ic">&#9881;</span>Settings</button>
 </nav>
@@ -1644,7 +1644,7 @@ dialog h2 { margin-bottom: 12px; }
     theme: 'system', assumedOt15: 0, assumedOt2: 0, weeksBack: 0, weeksAhead: 5,
     warnShare: 40, excludeBillIds: [], setupDone: false, pendingHoliday: false,
     offDays: 0, offHours: 0, offMinutes: 0, offPaid: false,
-    billTab: 'monthly', clockTab: 'clock', holidayNudgeDismissed: ''
+    billTab: 'monthly', holidayNudgeDismissed: ''
   };
 
   // The oldest date this person has any data for, so a settings history that
@@ -2042,20 +2042,23 @@ dialog h2 { margin-bottom: 12px; }
 
   var tick = null;
 
-  // The clock page holds two tabs: the clock itself and the punch list.
+  /* The clock page holds two tabs: the clock itself and the punch list.
+     Deliberately not remembered -- arriving at this page always shows the clock,
+     since that is what the page is for. Switching to Punches lasts only while
+     you stay. */
+  var clockTab = 'clock';
   function setClockTab(which) {
-    DB.prefs.clockTab = which === 'punches' ? 'punches' : 'clock';
-    save();
-    $('homeClock').hidden = DB.prefs.clockTab !== 'clock';
-    $('homePunches').hidden = DB.prefs.clockTab !== 'punches';
+    clockTab = which === 'punches' ? 'punches' : 'clock';
+    $('homeClock').hidden = clockTab !== 'clock';
+    $('homePunches').hidden = clockTab !== 'punches';
     Array.prototype.forEach.call($('clockTabs').children, function (b) {
-      if (b.dataset.clocktab === DB.prefs.clockTab) b.setAttribute('aria-current', 'page');
+      if (b.dataset.clocktab === clockTab) b.setAttribute('aria-current', 'page');
       else b.removeAttribute('aria-current');
     });
     if (current === 'home') {
-      $('viewTitle').textContent = DB.prefs.clockTab === 'punches' ? 'Punches' : 'Clock';
+      $('viewTitle').textContent = clockTab === 'punches' ? 'Punches' : 'Clock';
     }
-    if (DB.prefs.clockTab === 'punches') renderPunches();
+    if (clockTab === 'punches') renderPunches();
   }
   Array.prototype.forEach.call($('clockTabs').children, function (b) {
     b.addEventListener('click', function () { setClockTab(b.dataset.clocktab); });
@@ -2063,7 +2066,7 @@ dialog h2 { margin-bottom: 12px; }
 
   function renderHome() {
     $('setupCard').hidden = !!DB.prefs.setupDone && !!S().hourlyRate;
-    setClockTab(DB.prefs.clockTab);
+    setClockTab(clockTab);
     var act = activeSession();
     var btn = $('punchBtn');
     btn.className = 'punchbtn ' + (act ? 'out' : 'in');
@@ -3337,6 +3340,7 @@ dialog h2 { margin-bottom: 12px; }
   function show(v) {
     if (VIEWS.indexOf(v) === -1) v = 'home';
     if (!$('checkSheet').hidden) closeCheckSheet();
+    if (v === 'home') clockTab = 'clock';
     current = v;
     VIEWS.forEach(function (x) { $('v-' + x).hidden = x !== v; });
     Array.prototype.forEach.call($('tabs').children, function (b) {
