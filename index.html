@@ -1762,6 +1762,11 @@ dialog h2 { margin-bottom: 12px; }
       node.appendChild(s);
     });
   }
+  // A deduction reads red only when it is non-zero; a plain $0 stays neutral.
+  function negIf(v) { return v ? 'neg' : ''; }
+  // Savings: green when there is some, red when short, plain at exactly zero.
+  function savingsIf(v) { return v > 0 ? 'savings' : v < 0 ? 'neg' : ''; }
+
   function row(parent, label, value, cls) {
     var r = el('div', 'rowline' + (cls && cls.indexOf('total') >= 0 ? ' total' : ''));
     r.appendChild(el('span', null, label));
@@ -2210,16 +2215,19 @@ dialog h2 { margin-bottom: 12px; }
     if (p.dues || p.oneTimeTotal) row(b, 'Take-home', money(p.takeHome), 'total');
     b.appendChild(el('h3', null, 'Bills ' + esc(fmtKey(p.windowStart)) + ' &ndash; ' + esc(fmtKey(p.windowEnd))));
     if (!p.bills.length) b.appendChild(el('div', 'sub', 'Nothing due in this window.'));
+    // Bills come off the cheque, so they read like the dues line: a red negative.
     p.bills.forEach(function (bl) {
-      row(b, esc(bl.label) + ' <span class="sub">' + esc(fmtKey(bl.dateKey)) + '</span>', money(bl.amount));
+      row(b, esc(bl.label) + ' <span class="sub">' + esc(fmtKey(bl.dateKey)) + '</span>',
+          money(-bl.amount), negIf(bl.amount));
     });
     if (p.weeklyBillsTotal) {
-      row(b, 'Monthly bills', money(p.billsTotal));
-      row(b, 'Weekly bills', money(p.weeklyBillsTotal));
+      row(b, 'Monthly bills', money(-p.billsTotal), negIf(p.billsTotal));
+      row(b, 'Weekly bills', money(-p.weeklyBillsTotal), negIf(p.weeklyBillsTotal));
     }
-    row(b, 'Bills total', money(p.allBillsTotal != null ? p.allBillsTotal : p.billsTotal), 'total');
+    var billsAll = p.allBillsTotal != null ? p.allBillsTotal : p.billsTotal;
+    row(b, 'Bills total', money(-billsAll), ('total ' + negIf(billsAll)).trim());
     row(b, 'Potential savings', money(p.savings),
-        'total ' + (p.savings >= 0 ? 'savings' : 'neg'));
+        ('total ' + savingsIf(p.savings)).trim());
     if (p.net > 0 && p.billsTotal / p.net >= warnShare && warnShare > 0) {
       b.appendChild(el('div', 'warnbox', 'Heavy check: bills are ' +
         Math.round(100 * p.billsTotal / p.net) + '% of net pay.'));
@@ -2239,7 +2247,7 @@ dialog h2 { margin-bottom: 12px; }
     var head = el('div', 'sheethead');
     head.innerHTML = '<div><strong>' + esc(fmtKey(p.payday, true)) + '</strong> ' + tag +
       '<div class="sub">week ' + esc(fmtKey(p.weekStart)) + '&ndash;' + esc(fmtKey(p.weekEnd)) + '</div></div>' +
-      '<div class="num ' + (p.savings >= 0 ? 'savings' : 'neg') + '"><strong>' + esc(money(p.savings)) + '</strong></div>';
+      '<div class="num ' + savingsIf(p.savings) + '"><strong>' + esc(money(p.savings)) + '</strong></div>';
     card.appendChild(head);
     card.appendChild(buildCheckBody(p));
     var closeRow = el('div', 'closerow');
@@ -2284,17 +2292,21 @@ dialog h2 { margin-bottom: 12px; }
       var tag = p.source === 'actual' ? '<span class="tag actual">logged</span>'
               : p.source === 'override' ? '<span class="tag over">override</span>'
               : '<span class="tag proj">projected</span>';
+      var rowBills = p.allBillsTotal != null ? p.allBillsTotal : p.billsTotal;
       var rowEl = el('button', 'checkrow');
       rowEl.type = 'button';
       rowEl.innerHTML = '<span><strong>' + esc(fmtKey(p.payday, true)) + '</strong> ' + tag +
         '<div class="sub">week ' + esc(fmtKey(p.weekStart)) + '&ndash;' + esc(fmtKey(p.weekEnd)) +
-        ' &middot; bills ' + esc(money(p.allBillsTotal != null ? p.allBillsTotal : p.billsTotal)) + '</div></span>' +
-        '<span class="num ' + (p.savings >= 0 ? 'savings' : 'neg') + '"><strong>' +
+        ' &middot; bills <span class="' + negIf(rowBills) + '">' +
+        esc(money(-rowBills)) + '</span></div></span>' +
+        '<span class="num ' + savingsIf(p.savings) + '"><strong>' +
         esc(money(p.savings)) + '</strong></span>';
       rowEl.addEventListener('click', function () { openCheckSheet(p); });
       list.appendChild(rowEl);
     });
-    $('runningTotal').textContent = all.length ? money(all[all.length - 1].runningSavings) : money(0);
+    var grand = all.length ? all[all.length - 1].runningSavings : 0;
+    $('runningTotal').textContent = money(grand);
+    $('runningTotal').className = ('num ' + savingsIf(grand)).trim();
 
     renderOneTime();
 
