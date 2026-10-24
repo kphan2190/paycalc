@@ -296,6 +296,8 @@ details.check > summary {
 }
 details.check > summary::-webkit-details-marker { display: none; }
 details.check .body { padding: 2px 2px 12px; }
+.closerow { margin-top: 14px; }
+.closerow .btn { width: 100%; min-height: 48px; }
 
 /* ---------- dialog ---------- */
 dialog {
@@ -2150,13 +2152,12 @@ dialog h2 { margin-bottom: 12px; }
 
     all.forEach(function (p) {
       var d = el('details', 'check');
-      var isNext = !p.isPast && E.daysBetweenKeys(tk, p.payday) >= 0;
-      if (isNext && !renderChecks._opened) { d.open = true; renderChecks._opened = true; }
 
       // Only one paycheck stays open: opening this one closes whichever was.
       // toggle does not bubble, so the listener goes on each row.
       d.addEventListener('toggle', function () {
         if (d.open) {
+          // Belt and braces: only ever one open.
           Array.prototype.forEach.call(list.children, function (other) {
             if (other !== d && other.open) other.open = false;
           });
@@ -2173,6 +2174,17 @@ dialog h2 { margin-bottom: 12px; }
         ' &middot; bills ' + esc(money(p.allBillsTotal != null ? p.allBillsTotal : p.billsTotal)) + '</div></span>' +
         '<span class="num ' + (p.savings >= 0 ? 'pos' : 'neg') + '"><strong>' +
         esc(money(p.savings)) + '</strong></span>';
+      // While one paycheck is open the others are dimmed and hard to read, so a
+      // tap on them does nothing until the open one is closed. Tapping the open
+      // one still closes it.
+      sum.addEventListener('click', function (e) {
+        if (d.open) return;
+        var openOne = list.querySelector('details.check[open]');
+        if (openOne && openOne !== d) {
+          e.preventDefault();
+          toast('Close the open paycheck first');
+        }
+      });
       d.appendChild(sum);
 
       var b = el('div', 'body');
@@ -2208,10 +2220,18 @@ dialog h2 { margin-bottom: 12px; }
       if (p.source === 'override') {
         b.appendChild(el('div', 'sub', 'This week uses a manual override. Delete it under Week overrides to use logged punches instead.'));
       }
+      var closeRow = el('div', 'closerow');
+      var closeBtn = el('button', 'btn', 'Close');
+      closeBtn.addEventListener('click', function () {
+        d.open = false;
+        syncPaycheckFocus();
+        d.scrollIntoView({ block: 'nearest' });
+      });
+      closeRow.appendChild(closeBtn);
+      b.appendChild(closeRow);
       d.appendChild(b);
       list.appendChild(d);
     });
-    renderChecks._opened = false;
     syncPaycheckFocus();
     $('runningTotal').textContent = all.length ? money(all[all.length - 1].runningSavings) : money(0);
 
