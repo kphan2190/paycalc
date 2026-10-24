@@ -281,6 +281,15 @@ details.check:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
 /* An open paycheck's rows sit slightly inset, which reinforces the hierarchy
    without moving the figures out of their column. */
 details.check[open] > .body { padding-left: 10px; border-left: 2px solid var(--surface-2); }
+/* Focus mode: while a paycheck is open, everything around it recedes so the
+   open one reads as the subject. Dimmed rows stay fully tappable. */
+/* No transition on these: a part-way value can stick, leaving rows dimmed. */
+#v-checks.focusmode .card:not(#paycheckCard) { opacity: 0.4; filter: blur(1.5px); }
+#v-checks.focusmode #paycheckCard > h3,
+#v-checks.focusmode #paycheckCard > .rowline { opacity: 0.4; filter: blur(1.5px); }
+#v-checks.focusmode details.check:not([open]) { opacity: 0.3; filter: blur(1.5px); }
+#v-checks.focusmode details.check:not([open]):hover,
+#v-checks.focusmode details.check:not([open]):focus-within { opacity: 0.75; filter: none; }
 details.check > summary {
   cursor: pointer; padding: 9px 2px; display: flex; gap: 10px;
   align-items: baseline; justify-content: space-between; list-style: none;
@@ -417,7 +426,7 @@ dialog h2 { margin-bottom: 12px; }
     <div class="sub">Weeks with logged punches always use the real hours. Weeks with a manual
       override use that. Everything else uses the assumed OT above.</div>
   </div>
-  <div class="card">
+  <div class="card" id="paycheckCard">
     <h3>Paychecks</h3>
     <div id="checkList"></div>
     <div class="rowline total"><span>Running savings <span class="sub">across every paycheck shown</span></span><span class="num pos" id="runningTotal"></span></div>
@@ -2114,6 +2123,13 @@ dialog h2 { margin-bottom: 12px; }
     return p.gross - plain.gross;
   }
 
+  // Dim the page around an open paycheck. Driven from here rather than :has()
+  // so the behaviour does not depend on selector support.
+  function syncPaycheckFocus() {
+    var any = !!$('checkList').querySelector('details.check[open]');
+    $('v-checks').classList.toggle('focusmode', any);
+  }
+
   function renderChecks() {
     $('payGate').hidden = payDowChosen();
     $('payBody').hidden = !payDowChosen();
@@ -2140,10 +2156,12 @@ dialog h2 { margin-bottom: 12px; }
       // Only one paycheck stays open: opening this one closes whichever was.
       // toggle does not bubble, so the listener goes on each row.
       d.addEventListener('toggle', function () {
-        if (!d.open) return;
-        Array.prototype.forEach.call(list.children, function (other) {
-          if (other !== d && other.open) other.open = false;
-        });
+        if (d.open) {
+          Array.prototype.forEach.call(list.children, function (other) {
+            if (other !== d && other.open) other.open = false;
+          });
+        }
+        syncPaycheckFocus();
       });
 
       var tag = p.source === 'actual' ? '<span class="tag actual">logged</span>'
@@ -2194,6 +2212,7 @@ dialog h2 { margin-bottom: 12px; }
       list.appendChild(d);
     });
     renderChecks._opened = false;
+    syncPaycheckFocus();
     $('runningTotal').textContent = all.length ? money(all[all.length - 1].runningSavings) : money(0);
 
     renderOneTime();
