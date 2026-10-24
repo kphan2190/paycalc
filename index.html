@@ -267,10 +267,28 @@ input[type="text"], input[type="number"], input[type="date"], input[type="time"]
 input[type="datetime-local"], select, textarea {
   width: 100%; min-height: var(--tap); padding: 9px 11px;
   background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  /* Date and time inputs carry a wide intrinsic minimum (the picker's own UI).
+     Without this they refuse to shrink and push out of a narrow column. */
+  min-width: 0;
 }
 textarea { min-height: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-@media (max-width: 420px) { .grid2 { grid-template-columns: 1fr; } }
+/* minmax(0,1fr), not 1fr: a plain 1fr floors each column at its content's
+   minimum width, which a date or time input sets wider than half a card. */
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.grid2 > * { min-width: 0; }
+/* 480, not 420: the largest iPhones are 430 CSS px wide in portrait, and two
+   date or time fields do not fit across one at that width. A single column is
+   the better phone layout anyway -- full-width fields are easier to hit. */
+@media (max-width: 480px) { .grid2 { grid-template-columns: 1fr; } }
+
+/* Safari gives date and time inputs a native intrinsic width they will not go
+   below, so width:100% alone lets them push out of a narrow card. Dropping the
+   native appearance lets them size to their column. Deliberately not applied to
+   <select>, which needs its own arrow. */
+input[type="date"], input[type="time"], input[type="datetime-local"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
 input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); }
 
 .dayboxes { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
@@ -539,7 +557,7 @@ dialog h2 { margin-bottom: 12px; }
       <label class="field"><span>To</span><input type="date" id="rangeTo"></label>
     </div>
     <div class="btnrow" style="margin-bottom:10px">
-      <button class="btn sm" id="rangeTueTue">Next Tue &#8594; Tue</button>
+      <button class="btn sm" id="rangeTueTue">Next pay week</button>
       <button class="btn sm" id="rangeThisMonth">This month</button>
     </div>
     <div id="rangeResult"></div>
@@ -2633,6 +2651,8 @@ dialog h2 { margin-bottom: 12px; }
   });
 
   function renderBills() {
+    var payDay = DOWNAMES[E.payDowOf(S())];
+    $('rangeTueTue').textContent = 'Next ' + payDay + ' → ' + payDay;
     setBillTab(DB.prefs.billTab);
     renderWeeklyBills();
     var bl = $('billList'); bl.innerHTML = '';
@@ -2757,13 +2777,19 @@ dialog h2 { margin-bottom: 12px; }
   }
   $('rangeFrom').addEventListener('change', renderRange);
   $('rangeTo').addEventListener('change', renderRange);
-  $('rangeTueTue').addEventListener('click', function () {
-    var k = todayKey(), guard = 0;
-    while (E.dowOfKey(k) !== 2 && guard++ < 8) k = E.addDaysKey(k, 1);   // next Tuesday
+  // The pay window follows the chosen payday, not a hardcoded Tuesday.
+  function nextPaydayKey() {
+    var dow = E.payDowOf(S()), k = todayKey(), guard = 0;
+    while (E.dowOfKey(k) !== dow && guard++ < 8) k = E.addDaysKey(k, 1);
+    return k;
+  }
+  function setRangeToPayWindow() {
+    var k = nextPaydayKey();
     $('rangeFrom').value = k;
     $('rangeTo').value = E.addDaysKey(k, 6);
     renderRange();
-  });
+  }
+  $('rangeTueTue').addEventListener('click', setRangeToPayWindow);
   $('rangeThisMonth').addEventListener('click', function () {
     var p = E.parseKey(todayKey());
     $('rangeFrom').value = p.y + '-' + E.pad(p.m) + '-01';
@@ -3367,8 +3393,7 @@ dialog h2 { margin-bottom: 12px; }
 
   // Default the range tool to the paycheck window of the next payday.
   (function seedRange() {
-    var k = todayKey(), guard = 0;
-    while (E.dowOfKey(k) !== 2 && guard++ < 8) k = E.addDaysKey(k, 1);
+    var k = nextPaydayKey();
     $('rangeFrom').value = k;
     $('rangeTo').value = E.addDaysKey(k, 6);
   })();
