@@ -2137,6 +2137,15 @@ dialog h2 { margin-bottom: 12px; }
       var isNext = !p.isPast && E.daysBetweenKeys(tk, p.payday) >= 0;
       if (isNext && !renderChecks._opened) { d.open = true; renderChecks._opened = true; }
 
+      // Only one paycheck stays open: opening this one closes whichever was.
+      // toggle does not bubble, so the listener goes on each row.
+      d.addEventListener('toggle', function () {
+        if (!d.open) return;
+        Array.prototype.forEach.call(list.children, function (other) {
+          if (other !== d && other.open) other.open = false;
+        });
+      });
+
       var tag = p.source === 'actual' ? '<span class="tag actual">logged</span>'
               : p.source === 'override' ? '<span class="tag over">override</span>'
               : '<span class="tag proj">projected</span>';
