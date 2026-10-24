@@ -167,6 +167,17 @@ nav.tabs button[aria-current="page"] { color: var(--accent); }
 .holidayrow { display: flex; justify-content: center; margin-top: 14px; }
 .holidayrow .btn { min-width: 170px; }
 .holidayrow .btn.on { border-color: var(--pay-2x); color: var(--pay-2x); font-weight: 700; }
+/* A card header that folds its contents away. */
+.cardtoggle {
+  display: flex; width: 100%; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 2px 0; min-height: 40px;
+  background: none; border: 0; cursor: pointer; color: var(--muted);
+  font-size: 0.92rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+}
+.cardtoggle .chev { font-size: 0.9rem; transition: transform 0.15s ease; }
+.cardtoggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.cardtoggle[aria-expanded="true"] { color: var(--text); }
+
 .tabrow { display: flex; gap: 6px; margin-bottom: 12px; }
 .tabbtn {
   flex: 1; min-height: 42px; border: 1px solid var(--line); background: var(--bg);
@@ -423,12 +434,19 @@ dialog h2 { margin-bottom: 12px; }
     <div class="daylist" id="weekDays" style="margin-top:12px"></div>
   </div>
   <div class="card">
-    <h3 id="weekPayTitle">Projected pay for this week</h3>
-    <div id="weekPay"></div>
-  </div>
-  <div class="card">
-    <h3>Earned so far</h3>
-    <div id="weekToDate"></div>
+    <div class="tabrow" id="weekTabs">
+      <button class="tabbtn" data-weektab="earned" aria-current="page">Earned</button>
+      <button class="tabbtn" data-weektab="projected">Projected</button>
+    </div>
+
+    <div id="weekEarnedPanel">
+      <div id="weekToDate"></div>
+    </div>
+
+    <div id="weekProjectedPanel" hidden>
+      <h3 id="weekPayTitle">Projected pay for this week</h3>
+      <div id="weekPay"></div>
+    </div>
   </div>
   <div class="card"><div class="btnrow"><button class="btn" id="weekThis">Jump to this week</button></div></div>
 </section>
@@ -444,7 +462,11 @@ dialog h2 { margin-bottom: 12px; }
 
   <div id="payBody">
   <div class="card">
-    <h3>Projection</h3>
+    <button class="cardtoggle" id="projToggle" type="button" aria-expanded="false">
+      <span>Projection</span>
+      <span class="chev" aria-hidden="true">&#9662;</span>
+    </button>
+    <div id="projBody" hidden>
     <div class="grid2">
       <label class="field"><span>Assumed OT hrs/week at 1.5x</span>
         <input type="number" id="assumedOt" step="0.25" min="0"></label>
@@ -471,6 +493,7 @@ dialog h2 { margin-bottom: 12px; }
     <div class="sub" id="offSummary" style="margin-bottom:12px"></div>
     <div class="sub">Weeks with logged punches always use the real hours. Weeks with a manual
       override use that. Everything else uses the assumed OT above.</div>
+    </div>
   </div>
   <div class="card">
     <h3>Paychecks</h3>
@@ -640,7 +663,7 @@ dialog h2 { margin-bottom: 12px; }
 
 <nav class="tabs" id="tabs">
   <button data-view="home" data-title="Clock"><span class="ic">&#9201;</span>Clock</button>
-  <button data-view="week" data-title="Week"><span class="ic">&#128197;</span>Week</button>
+  <button data-view="week" data-title="Earned"><span class="ic">&#128197;</span>Earned</button>
   <button data-view="checks" data-title="Paychecks"><span class="ic">&#128176;</span>Pay</button>
   <button data-view="bills" data-title="Bills"><span class="ic">&#129534;</span>Bills</button>
   <button data-view="more" data-title="Settings"><span class="ic">&#9881;</span>Settings</button>
@@ -2084,9 +2107,25 @@ dialog h2 { margin-bottom: 12px; }
   /* ---------------- WEEK ---------------- */
 
   var weekCursor = null;
+  // Deliberately not stored: each load of the app starts on Earned.
+  var weekTab = 'earned';
+
+  function setWeekTab(which) {
+    weekTab = which === 'projected' ? 'projected' : 'earned';
+    $('weekEarnedPanel').hidden = weekTab !== 'earned';
+    $('weekProjectedPanel').hidden = weekTab !== 'projected';
+    Array.prototype.forEach.call($('weekTabs').children, function (b) {
+      if (b.dataset.weektab === weekTab) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+  }
+  Array.prototype.forEach.call($('weekTabs').children, function (b) {
+    b.addEventListener('click', function () { setWeekTab(b.dataset.weektab); });
+  });
 
   function renderWeek() {
     if (!weekCursor) weekCursor = E.weekStartKey(todayKey(), 1);
+    setWeekTab(weekTab);
     var wk = weekFor(weekCursor, true) || emptyWeek(weekCursor);
     var st = S(), tk = todayKey();
 
@@ -2128,7 +2167,7 @@ dialog h2 { margin-bottom: 12px; }
     if (!weekOver && !pr.override) {
       wpNode.appendChild(el('div', 'sub', 'Projected: the full week’s base, which assumes you ' +
         'work your remaining shifts, plus only the overtime logged so far. ' +
-        'Earned so far is below.'));
+        'The Earned tab shows what is banked so far.'));
     }
     if (pr.override) {
       wpNode.appendChild(el('div', 'warnbox', 'This week is set by a manual override' +
@@ -2163,7 +2202,7 @@ dialog h2 { margin-bottom: 12px; }
     row(td, 'Gross to date', money(grossSoFar), 'total');
     row(td, 'Net to date', money(grossSoFar * (st.takeHomePct || 0) / 100), 'total pos');
     td.appendChild(el('div', 'sub', 'The full week pays the flat base of ' +
-      esc(money(pay.baseGross)) + ' regardless of hours; this card just spreads it over the week.'));
+      esc(money(pay.baseGross)) + ' regardless of hours; this just spreads it across the week.'));
   }
 
   $('weekPrev').addEventListener('click', function () { weekCursor = E.addDaysKey(weekCursor, -7); renderWeek(); });
@@ -2270,10 +2309,21 @@ dialog h2 { margin-bottom: 12px; }
     if (e.key === 'Escape' && !$('checkSheet').hidden) closeCheckSheet();
   });
 
+  /* The projection controls are tucked away by default: they are set once in a
+     while, not read. Deliberately not stored, so each load starts folded. */
+  var projOpen = false;
+  function setProjOpen(open) {
+    projOpen = !!open;
+    $('projBody').hidden = !projOpen;
+    $('projToggle').setAttribute('aria-expanded', projOpen ? 'true' : 'false');
+  }
+  $('projToggle').addEventListener('click', function () { setProjOpen(!projOpen); });
+
   function renderChecks() {
     $('payGate').hidden = payDowChosen();
     $('payBody').hidden = !payDowChosen();
     if (!payDowChosen()) return;
+    setProjOpen(projOpen);
     $('assumedOt').value = DB.prefs.assumedOt15;
     $('assumedOt2').value = DB.prefs.assumedOt2;
     $('offDays').value = DB.prefs.offDays || 0;
