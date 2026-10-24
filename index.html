@@ -270,34 +270,52 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
 .tag.actual { color: var(--go); }
 .tag.proj { color: var(--accent); }
 .tag.over { color: var(--warn); }
-/* Each paycheck is separated by a heavier rule with more air around it, so it
-   is clearly a different level from the 1px line-item rules inside one. */
-details.check {
-  border-top: 2px solid var(--line-strong);
-  margin-top: 10px;
-  padding: 8px 0 2px;
+/* ---------- paychecks ---------- */
+
+/* One paycheck in the list; tapping it opens the card. */
+.checkrow {
+  display: flex; width: 100%; gap: 10px; align-items: baseline;
+  justify-content: space-between; text-align: left;
+  padding: 12px 2px; background: none; border: 0; cursor: pointer;
+  border-top: 2px solid var(--line-strong); color: inherit; font: inherit;
 }
-details.check:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
-/* An open paycheck's rows sit slightly inset, which reinforces the hierarchy
-   without moving the figures out of their column. */
-details.check[open] > .body { padding-left: 10px; border-left: 2px solid var(--surface-2); }
-/* Focus mode: while a paycheck is open, everything around it recedes so the
-   open one reads as the subject. Dimmed rows stay fully tappable. */
-/* No transition on these: a part-way value can stick, leaving rows dimmed. */
-#v-checks.focusmode .card:not(#paycheckCard) { opacity: 0.4; filter: blur(1.5px); }
-#v-checks.focusmode #paycheckCard > h3,
-#v-checks.focusmode #paycheckCard > .rowline { opacity: 0.4; filter: blur(1.5px); }
-#v-checks.focusmode details.check:not([open]) { opacity: 0.3; filter: blur(1.5px); }
-#v-checks.focusmode details.check:not([open]):hover,
-#v-checks.focusmode details.check:not([open]):focus-within { opacity: 0.75; filter: none; }
-details.check > summary {
-  cursor: pointer; padding: 9px 2px; display: flex; gap: 10px;
-  align-items: baseline; justify-content: space-between; list-style: none;
+.checkrow:first-of-type { border-top: 0; }
+.checkrow:active { background: var(--surface-2); }
+
+/* The paycheck itself: centred in front of a dimmed, blurred page, so nothing
+   has to be scrolled to in order to read it. */
+.sheet {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px calc(16px + env(safe-area-inset-right, 0px))
+           calc(16px + var(--safe-b)) calc(16px + env(safe-area-inset-left, 0px));
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
 }
-details.check > summary::-webkit-details-marker { display: none; }
-details.check .body { padding: 2px 2px 12px; }
-.closerow { margin-top: 14px; }
+.sheetcard {
+  width: min(100%, 460px); max-height: 86vh; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 16px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+.sheethead {
+  display: flex; gap: 10px; align-items: baseline; justify-content: space-between;
+  padding-bottom: 10px; margin-bottom: 4px;
+  border-bottom: 2px solid var(--line-strong);
+}
+.sheetcard .body { padding: 2px 0 0; }
+body.sheetopen { overflow: hidden; }
+
+.closerow { margin-top: 16px; }
 .closerow .btn { width: 100%; min-height: 48px; }
+/* The card scrolls when a window is busy, so Close stays reachable. */
+.sheetcard .closerow {
+  position: sticky; bottom: -16px;
+  margin: 16px -16px -16px; padding: 12px 16px calc(16px + var(--safe-b));
+  background: var(--surface); border-top: 1px solid var(--line);
+}
 
 /* ---------- dialog ---------- */
 dialog {
@@ -428,7 +446,7 @@ dialog h2 { margin-bottom: 12px; }
     <div class="sub">Weeks with logged punches always use the real hours. Weeks with a manual
       override use that. Everything else uses the assumed OT above.</div>
   </div>
-  <div class="card" id="paycheckCard">
+  <div class="card">
     <h3>Paychecks</h3>
     <div id="checkList"></div>
     <div class="rowline total"><span>Running savings <span class="sub">across every paycheck shown</span></span><span class="num pos" id="runningTotal"></span></div>
@@ -628,6 +646,10 @@ dialog h2 { margin-bottom: 12px; }
     <button class="btn" value="cancel" id="dlgCancel">Cancel</button>
   </div>
 </form></dialog>
+
+<div class="sheet" id="checkSheet" hidden>
+  <div class="sheetcard" id="checkSheetCard"></div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -2125,12 +2147,87 @@ dialog h2 { margin-bottom: 12px; }
     return p.gross - plain.gross;
   }
 
-  // Dim the page around an open paycheck. Driven from here rather than :has()
-  // so the behaviour does not depend on selector support.
-  function syncPaycheckFocus() {
-    var any = !!$('checkList').querySelector('details.check[open]');
-    $('v-checks').classList.toggle('focusmode', any);
+  /* A paycheck opens as a card in front of the page rather than expanding in
+     place: it is centred, so nothing has to be scrolled to, and the page behind
+     is dimmed and blurred. Built as a plain overlay rather than <dialog>,
+     whose close event is unreliable on some mobile browsers. */
+
+  function closeCheckSheet() {
+    $('checkSheet').hidden = true;
+    document.body.classList.remove('sheetopen');
   }
+
+  function buildCheckBody(p) {
+    var st = S(), pst = p.settings || st;
+    var warnShare = (DB.prefs.warnShare || 0) / 100;
+    var b = el('div', 'body');
+    row(b, 'Gross', money(p.gross));
+    if (p.pay.ot15Hours) row(b, hnum(p.pay.ot15Hours) + ' h at 1.5x', money(p.pay.ot15Pay), 'c15');
+    if (p.pay.ot2Hours) row(b, hnum(p.pay.ot2Hours) + ' h at 2x', money(p.pay.ot2Pay), 'c2');
+    if (pst.shiftPremium) {
+      row(b, 'Shift premium included (' + money(pst.shiftPremium) + '/h)',
+          money(premiumShare(p, pst)));
+    }
+    row(b, 'Net at ' + hnum(pst.takeHomePct) + '% take-home', money(p.net));
+    if (p.dues) row(b, 'Union dues', money(-p.dues), 'neg');
+    p.oneTime.forEach(function (e) {
+      row(b, 'One-time pay' + (e.note ? ' \u2014 ' + esc(e.note) : '') +
+             ' <span class="sub">' + esc(fmtKey(e.date)) + '</span>', money(e.net), 'pos');
+    });
+    if (p.dues || p.oneTimeTotal) row(b, 'Take-home', money(p.takeHome), 'total');
+    b.appendChild(el('h3', null, 'Bills ' + esc(fmtKey(p.windowStart)) + ' &ndash; ' + esc(fmtKey(p.windowEnd))));
+    if (!p.bills.length) b.appendChild(el('div', 'sub', 'Nothing due in this window.'));
+    p.bills.forEach(function (bl) {
+      row(b, esc(bl.label) + ' <span class="sub">' + esc(fmtKey(bl.dateKey)) + '</span>', money(bl.amount));
+    });
+    if (p.weeklyBillsTotal) {
+      row(b, 'Monthly bills', money(p.billsTotal));
+      row(b, 'Weekly bills', money(p.weeklyBillsTotal));
+    }
+    row(b, 'Bills total', money(p.allBillsTotal != null ? p.allBillsTotal : p.billsTotal), 'total');
+    row(b, 'Potential savings', money(p.savings), 'total ' + (p.savings >= 0 ? 'pos' : 'neg'));
+    row(b, 'Running savings', money(p.runningSavings), 'total');
+    if (p.net > 0 && p.billsTotal / p.net >= warnShare && warnShare > 0) {
+      b.appendChild(el('div', 'warnbox', 'Heavy check: bills are ' +
+        Math.round(100 * p.billsTotal / p.net) + '% of net pay.'));
+    }
+    if (p.source === 'override') {
+      b.appendChild(el('div', 'sub', 'This week uses a manual override. Delete it under Week overrides to use logged punches instead.'));
+    }
+    return b;
+  }
+
+  function openCheckSheet(p) {
+    var card = $('checkSheetCard');
+    card.innerHTML = '';
+    var tag = p.source === 'actual' ? '<span class="tag actual">logged</span>'
+            : p.source === 'override' ? '<span class="tag over">override</span>'
+            : '<span class="tag proj">projected</span>';
+    var head = el('div', 'sheethead');
+    head.innerHTML = '<div><strong>' + esc(fmtKey(p.payday, true)) + '</strong> ' + tag +
+      '<div class="sub">week ' + esc(fmtKey(p.weekStart)) + '&ndash;' + esc(fmtKey(p.weekEnd)) + '</div></div>' +
+      '<div class="num ' + (p.savings >= 0 ? 'pos' : 'neg') + '"><strong>' + esc(money(p.savings)) + '</strong></div>';
+    card.appendChild(head);
+    card.appendChild(buildCheckBody(p));
+    var closeRow = el('div', 'closerow');
+    var closeBtn = el('button', 'btn primary', 'Close');
+    closeBtn.type = 'button';
+    closeBtn.addEventListener('click', closeCheckSheet);
+    closeRow.appendChild(closeBtn);
+    card.appendChild(closeRow);
+
+    $('checkSheet').hidden = false;
+    document.body.classList.add('sheetopen');
+    card.scrollTop = 0;
+  }
+
+  // Tapping the dimmed backdrop, or Escape, closes it. A tap inside does not.
+  $('checkSheet').addEventListener('click', function (e) {
+    if (e.target === $('checkSheet')) closeCheckSheet();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !$('checkSheet').hidden) closeCheckSheet();
+  });
 
   function renderChecks() {
     $('payGate').hidden = payDowChosen();
@@ -2151,88 +2248,19 @@ dialog h2 { margin-bottom: 12px; }
     var warnShare = (DB.prefs.warnShare || 0) / 100;
 
     all.forEach(function (p) {
-      var d = el('details', 'check');
-
-      // Only one paycheck stays open: opening this one closes whichever was.
-      // toggle does not bubble, so the listener goes on each row.
-      d.addEventListener('toggle', function () {
-        if (d.open) {
-          // Belt and braces: only ever one open.
-          Array.prototype.forEach.call(list.children, function (other) {
-            if (other !== d && other.open) other.open = false;
-          });
-        }
-        syncPaycheckFocus();
-      });
-
       var tag = p.source === 'actual' ? '<span class="tag actual">logged</span>'
               : p.source === 'override' ? '<span class="tag over">override</span>'
               : '<span class="tag proj">projected</span>';
-      var sum = el('summary');
-      sum.innerHTML = '<span><strong>' + esc(fmtKey(p.payday, true)) + '</strong> ' + tag +
+      var rowEl = el('button', 'checkrow');
+      rowEl.type = 'button';
+      rowEl.innerHTML = '<span><strong>' + esc(fmtKey(p.payday, true)) + '</strong> ' + tag +
         '<div class="sub">week ' + esc(fmtKey(p.weekStart)) + '&ndash;' + esc(fmtKey(p.weekEnd)) +
         ' &middot; bills ' + esc(money(p.allBillsTotal != null ? p.allBillsTotal : p.billsTotal)) + '</div></span>' +
         '<span class="num ' + (p.savings >= 0 ? 'pos' : 'neg') + '"><strong>' +
         esc(money(p.savings)) + '</strong></span>';
-      // While one paycheck is open the others are dimmed and hard to read, so a
-      // tap on them does nothing until the open one is closed. Tapping the open
-      // one still closes it.
-      sum.addEventListener('click', function (e) {
-        if (d.open) return;
-        var openOne = list.querySelector('details.check[open]');
-        if (openOne && openOne !== d) {
-          e.preventDefault();
-          toast('Close the open paycheck first');
-        }
-      });
-      d.appendChild(sum);
-
-      var b = el('div', 'body');
-      var pst = p.settings || st;
-      row(b, 'Gross', money(p.gross));
-      if (p.pay.ot15Hours) row(b, hnum(p.pay.ot15Hours) + ' h at 1.5x', money(p.pay.ot15Pay), 'c15');
-      if (p.pay.ot2Hours) row(b, hnum(p.pay.ot2Hours) + ' h at 2x', money(p.pay.ot2Pay), 'c2');
-      if (pst.shiftPremium) {
-        row(b, 'Shift premium included (' + money(pst.shiftPremium) + '/h)',
-            money(premiumShare(p, pst)));
-      }
-      row(b, 'Net at ' + hnum(pst.takeHomePct) + '% take-home', money(p.net));
-      if (p.dues) row(b, 'Union dues', money(-p.dues), 'neg');
-      p.oneTime.forEach(function (e) {
-        row(b, 'One-time pay' + (e.note ? ' \u2014 ' + esc(e.note) : '') +
-               ' <span class="sub">' + esc(fmtKey(e.date)) + '</span>', money(e.net), 'pos');
-      });
-      if (p.dues || p.oneTimeTotal) row(b, 'Take-home', money(p.takeHome), 'total');
-      b.appendChild(el('h3', null, 'Bills ' + esc(fmtKey(p.windowStart)) + ' &ndash; ' + esc(fmtKey(p.windowEnd))));
-      if (!p.bills.length) b.appendChild(el('div', 'sub', 'Nothing due in this window.'));
-      p.bills.forEach(function (bl) { row(b, esc(bl.label) + ' <span class="sub">' + esc(fmtKey(bl.dateKey)) + '</span>', money(bl.amount)); });
-      if (p.weeklyBillsTotal) {
-        row(b, 'Monthly bills', money(p.billsTotal));
-        row(b, 'Weekly bills', money(p.weeklyBillsTotal));
-      }
-      row(b, 'Bills total', money(p.allBillsTotal != null ? p.allBillsTotal : p.billsTotal), 'total');
-      row(b, 'Potential savings', money(p.savings), 'total ' + (p.savings >= 0 ? 'pos' : 'neg'));
-      row(b, 'Running savings', money(p.runningSavings), 'total');
-      if (p.net > 0 && p.billsTotal / p.net >= warnShare && warnShare > 0) {
-        b.appendChild(el('div', 'warnbox', 'Heavy check: bills are ' +
-          Math.round(100 * p.billsTotal / p.net) + '% of net pay.'));
-      }
-      if (p.source === 'override') {
-        b.appendChild(el('div', 'sub', 'This week uses a manual override. Delete it under Week overrides to use logged punches instead.'));
-      }
-      var closeRow = el('div', 'closerow');
-      var closeBtn = el('button', 'btn', 'Close');
-      closeBtn.addEventListener('click', function () {
-        d.open = false;
-        syncPaycheckFocus();
-        d.scrollIntoView({ block: 'nearest' });
-      });
-      closeRow.appendChild(closeBtn);
-      b.appendChild(closeRow);
-      d.appendChild(b);
-      list.appendChild(d);
+      rowEl.addEventListener('click', function () { openCheckSheet(p); });
+      list.appendChild(rowEl);
     });
-    syncPaycheckFocus();
     $('runningTotal').textContent = all.length ? money(all[all.length - 1].runningSavings) : money(0);
 
     renderOneTime();
@@ -3113,6 +3141,7 @@ dialog h2 { margin-bottom: 12px; }
   var current = 'home';
   function show(v) {
     if (VIEWS.indexOf(v) === -1) v = 'home';
+    if (!$('checkSheet').hidden) closeCheckSheet();
     current = v;
     VIEWS.forEach(function (x) { $('v-' + x).hidden = x !== v; });
     Array.prototype.forEach.call($('tabs').children, function (b) {
