@@ -608,6 +608,16 @@ dialog h2 { margin-bottom: 12px; }
 <!-- ================= SETTINGS ================= -->
 <section class="view" id="v-more" hidden>
   <div class="card">
+    <h3>Appearance</h3>
+    <label class="field" style="margin:0"><span>Theme</span>
+      <select id="s_theme">
+        <option value="system">Follow my device</option>
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+      </select></label>
+  </div>
+
+  <div class="card">
     <button class="cardtoggle" type="button" data-panel="schedulePanel" aria-expanded="false">
       <span>Your schedule</span>
       <span class="chev" aria-hidden="true">&#9662;</span>
@@ -646,6 +656,8 @@ dialog h2 { margin-bottom: 12px; }
         <select id="s_payDow"></select></label>
       <label class="field"><span>Time zone</span><input type="text" id="s_timezone"></label>
     </div>
+    <label class="field"><span>Warn when bills exceed this share of net</span>
+      <input type="number" id="s_warnShare" step="5" min="0" max="100"></label>
     </div>
   </div>
 
@@ -679,12 +691,6 @@ dialog h2 { margin-bottom: 12px; }
         <option value="shift">Stays with the shift day</option>
         <option value="calendar">Counts toward the next day</option>
       </select></label>
-    <div class="grid2">
-      <label class="field"><span>Grace window (min)</span><input type="number" id="s_graceMinutes" step="1" min="0"></label>
-      <label class="field"><span>Punch rounding (min)</span><input type="number" id="s_punchRoundingMinutes" step="1" min="0"></label>
-    </div>
-    <label class="field"><span>Warn when bills exceed this share of net</span>
-      <input type="number" id="s_warnShare" step="5" min="0" max="100"></label>
     <div class="sub" id="saveNote" style="margin-top:6px">Changes save as you make them, and
       apply to the current and future paychecks. Past paychecks are not changed.</div>
     </div>
@@ -708,16 +714,6 @@ dialog h2 { margin-bottom: 12px; }
       <div class="sub" id="duesNote">Dues are worked out from the hourly rate alone; the shift
         premium is not counted.</div>
     </div>
-  </div>
-
-  <div class="card">
-    <h3>Appearance</h3>
-    <label class="field" style="margin:0"><span>Theme</span>
-      <select id="s_theme">
-        <option value="system">Follow my device</option>
-        <option value="dark">Dark</option>
-        <option value="light">Light</option>
-      </select></label>
   </div>
 
   <div class="card">
@@ -2427,13 +2423,23 @@ dialog h2 { margin-bottom: 12px; }
 
   /* Foldable cards. Anything with a .cardtoggle header opens the panel it names.
      All of them start closed on every load: these are settings you change now and
-     then, not figures you read. */
+     then, not figures you read. Only one stays open -- opening a card folds
+     whichever was open, so the page never becomes a long scroll of everything. */
+  function closeAllCards(except) {
+    Array.prototype.forEach.call(document.querySelectorAll('.cardtoggle'), function (b) {
+      if (b === except) return;
+      var p = $(b.dataset.panel);
+      if (p) p.hidden = true;
+      b.setAttribute('aria-expanded', 'false');
+    });
+  }
   document.addEventListener('click', function (e) {
     var btn = e.target.closest ? e.target.closest('.cardtoggle') : null;
     if (!btn) return;
     var panel = $(btn.dataset.panel);
     if (!panel) return;
     var open = panel.hidden;
+    closeAllCards(btn);
     panel.hidden = !open;
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   });
@@ -3015,8 +3021,7 @@ dialog h2 { margin-bottom: 12px; }
 
   var NUM_SETTINGS = ['hourlyRate', 'takeHomePct', 'shiftPremium', 'fullWeekHours', 'ot15Multiplier',
     'ot2Multiplier', 'scheduledOt15Cap', 'offDayOt15Cap', 'lapseHours',
-    'duesMultiplier', 'duesFlat',
-    'graceMinutes', 'punchRoundingMinutes'];
+    'duesMultiplier', 'duesFlat'];
   var TXT_SETTINGS = ['timezone'];
   var SEL_SETTINGS = ['postMidnightDay'];
 
