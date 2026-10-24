@@ -34,8 +34,31 @@
   --tap: 48px;
   --safe-b: env(safe-area-inset-bottom, 0px);
 }
-:root[data-theme="dark"],
-html:not([data-theme="light"]) {
+/* No data-theme attribute means "follow the device". The dark values therefore
+   apply either when the device asks for dark, or when dark is chosen outright. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1115;
+    --surface: #171a21;
+    --surface-2: #21252e;
+    --line: #2c3240;
+    --line-strong: #4b5570;
+    --text: #e8eaee;
+    --muted: #98a1b0;
+    --accent: #4f8cf7;
+    --accent-text: #0b0d11;
+    --go: #2fbd7a;
+    --stop: #ff6b6b;
+    --warn: #ffcb6b;
+    --warn-bg: #3a2d10;
+    --pay-base: inherit;
+    --pay-1-5x: #5bd98a;
+    --pay-2x: #22e07a;
+    --ot15: var(--pay-1-5x);
+    --ot2: var(--pay-2x);
+  }
+}
+:root[data-theme="dark"] {
   --bg: #0f1115;
   --surface: #171a21;
   --surface-2: #21252e;
@@ -374,7 +397,7 @@ dialog h2 { margin-bottom: 12px; }
   <div class="card">
     <h3>This week <span class="sub" id="weekRangeLabel"></span></h3>
     <div class="stats" id="homeWeekStats"></div>
-    <div class="rowline total"><span>Next paycheck <span class="sub" id="nextPayLabel"></span></span><span class="num" id="homeNextNet"></span></div>
+    <div class="rowline total"><span>Next paycheck <span class="sub" id="nextPayLabel"></span></span><span class="num pos" id="homeNextNet"></span></div>
   </div>
 
   <div class="card">
@@ -636,10 +659,12 @@ dialog h2 { margin-bottom: 12px; }
 
   <div class="card">
     <h3>Appearance</h3>
-    <label class="field" style="display:flex;align-items:center;gap:10px;margin:0">
-      <input type="checkbox" id="s_darkMode">
-      <span style="margin:0">Dark mode</span>
-    </label>
+    <label class="field" style="margin:0"><span>Theme</span>
+      <select id="s_theme">
+        <option value="system">Follow my device</option>
+        <option value="dark">Dark</option>
+        <option value="light">Light</option>
+      </select></label>
   </div>
 
   <div class="card">
@@ -1567,7 +1592,7 @@ dialog h2 { margin-bottom: 12px; }
   /* ---------------- state ---------------- */
 
   var DEFAULT_PREFS = {
-    theme: 'dark', assumedOt15: 0, assumedOt2: 0, weeksBack: 0, weeksAhead: 5,
+    theme: 'system', assumedOt15: 0, assumedOt2: 0, weeksBack: 0, weeksAhead: 5,
     warnShare: 40, excludeBillIds: [], setupDone: false, pendingHoliday: false,
     offDays: 0, offHours: 0, offMinutes: 0, offPaid: false,
     billTab: 'monthly', clockTab: 'clock', holidayNudgeDismissed: ''
@@ -2991,7 +3016,7 @@ dialog h2 { margin-bottom: 12px; }
     $('s_anchor').value = st.schedule.anchor === 'start' ? 'start' : 'end';
     readDayBoxes(true, st.schedule.days || []);
     $('s_warnShare').value = DB.prefs.warnShare;
-    $('s_darkMode').checked = DB.prefs.theme !== 'light';
+    $('s_theme').value = DB.prefs.theme || 'system';
     var d = E.duesFor(st);
     $('duesNote').innerHTML = st.duesEnabled
       ? 'Dues come to <strong>' + esc(money(d)) + '</strong> a month (' + esc(hnum(st.duesMultiplier)) +
@@ -3022,11 +3047,11 @@ dialog h2 { margin-bottom: 12px; }
       var cb = $('s_day' + d);
       if (cb && !cb.dataset.autosave) { cb.dataset.autosave = '1'; cb.addEventListener('change', commitSettings); }
     }
-    var dm = $('s_darkMode');
-    if (dm && !dm.dataset.autosave) {
-      dm.dataset.autosave = '1';
-      dm.addEventListener('change', function () {
-        DB.prefs.theme = dm.checked ? 'dark' : 'light';
+    var th = $('s_theme');
+    if (th && !th.dataset.autosave) {
+      th.dataset.autosave = '1';
+      th.addEventListener('change', function () {
+        DB.prefs.theme = th.value;
         save(); applyTheme();
       });
     }
@@ -3229,18 +3254,42 @@ dialog h2 { margin-bottom: 12px; }
 
   /* ---------------- theme & nav ---------------- */
 
-  function applyTheme() {
-    var t = DB.prefs.theme === 'light' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', t);
-    var mt = document.querySelector('meta[name="theme-color"]');
-    if (mt) mt.setAttribute('content', t === 'light' ? '#f4f5f7' : '#0f1115');
-    $('themeBtn').innerHTML = t === 'light' ? '&#9790;' : '&#9728;';
-    $('themeBtn').title = t === 'light' ? 'Switch to dark mode' : 'Switch to light mode';
+  // 'system' leaves the attribute off so the CSS follows prefers-color-scheme;
+  // 'dark' or 'light' pins it.
+  function systemPrefersDark() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   }
+  function effectiveTheme() {
+    var t = DB.prefs.theme;
+    if (t === 'light' || t === 'dark') return t;
+    return systemPrefersDark() ? 'dark' : 'light';
+  }
+  function applyTheme() {
+    var choice = DB.prefs.theme;
+    if (choice === 'light' || choice === 'dark') {
+      document.documentElement.setAttribute('data-theme', choice);
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+    var eff = effectiveTheme();
+    var mt = document.querySelector('meta[name="theme-color"]');
+    if (mt) mt.setAttribute('content', eff === 'light' ? '#f4f5f7' : '#0f1115');
+    $('themeBtn').innerHTML = eff === 'light' ? '&#9790;' : '&#9728;';
+    $('themeBtn').title = 'Theme: ' + (choice === 'system' ? 'following your device' : choice) +
+      '. Tap to switch to ' + (eff === 'light' ? 'dark' : 'light') + '.';
+  }
+  // The header button picks a side outright; Settings can hand it back to the device.
   $('themeBtn').addEventListener('click', function () {
-    DB.prefs.theme = DB.prefs.theme === 'light' ? 'dark' : 'light';
+    DB.prefs.theme = effectiveTheme() === 'light' ? 'dark' : 'light';
     save(); applyTheme();
   });
+  // While following the device, track it live.
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onSystemChange = function () { if (DB.prefs.theme === 'system') applyTheme(); };
+    if (mq.addEventListener) mq.addEventListener('change', onSystemChange);
+    else if (mq.addListener) mq.addListener(onSystemChange);
+  }
 
   var VIEWS = ['home', 'week', 'checks', 'bills', 'more'];
   var current = 'home';
@@ -3287,7 +3336,11 @@ dialog h2 { margin-bottom: 12px; }
   if (!DB.prefs.setupDone) setTimeout(runSetup, 250);
 
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) renderAll();
+    if (document.hidden) return;
+    // Re-apply in case the device changed appearance while we were away, or the
+    // matchMedia change event never arrived.
+    applyTheme();
+    renderAll();
   });
 
   window.PayTrackerDebug = {
