@@ -117,11 +117,11 @@ nav.tabs {
 }
 nav.tabs button {
   flex: 1 1 0; min-width: 0; min-height: 64px; border: 0; background: none; cursor: pointer;
-  color: var(--muted); font-size: 0.62rem; font-weight: 600;
+  color: var(--muted); font-size: 0.7rem; font-weight: 600;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   letter-spacing: 0.02em;
 }
-nav.tabs button .ic { font-size: 1.15rem; line-height: 1; }
+nav.tabs button .ic { font-size: 1.25rem; line-height: 1; }
 nav.tabs button span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 nav.tabs button[aria-current="page"] { color: var(--accent); }
 
@@ -352,6 +352,12 @@ dialog h2 { margin-bottom: 12px; }
     <div class="btnrow"><button class="btn primary" id="setupBtn">Set up my pay</button></div>
   </div>
 
+  <div class="tabrow" id="clockTabs">
+    <button class="tabbtn" data-clocktab="clock" aria-current="page">Clock</button>
+    <button class="tabbtn" data-clocktab="punches">Punches</button>
+  </div>
+
+  <div id="homeClock">
   <div class="card">
     <h3>This week <span class="sub" id="weekRangeLabel"></span></h3>
     <div class="stats" id="homeWeekStats"></div>
@@ -381,6 +387,24 @@ dialog h2 { margin-bottom: 12px; }
       <button class="btn" id="addPunchHome">+ Missed punch</button>
       <button class="btn" id="markDayHome">PTO / Vacation / Holiday</button>
     </div>
+  </div>
+  </div>
+
+  <div id="homePunches" hidden>
+  <div class="card">
+    <h3>Punches</h3>
+    <div class="btnrow" style="margin-bottom:12px">
+      <button class="btn primary" id="addPunch">+ Add a punch</button>
+      <button class="btn" id="markDay">PTO / Vacation / Holiday</button>
+    </div>
+    <div id="punchList"></div>
+  </div>
+
+  <div class="card">
+    <h3>PTO / Vacation / Holiday</h3>
+    <div id="markerList"></div>
+  </div>
+
   </div>
 </section>
 
@@ -493,32 +517,14 @@ dialog h2 { margin-bottom: 12px; }
     </div>
 
     <div id="billMonthly">
-    <div id="billList"></div>
-    <div class="rowline total"><span>Monthly total</span><span class="num" id="billTotal"></span></div>
-    <div class="btnrow" style="margin-top:12px"><button class="btn primary" id="addBill">+ Add bill</button></div>
+      <div class="btnrow" style="margin-bottom:14px"><button class="btn primary" id="addBill">+ Add bill</button></div>
+      <div id="billList"></div>
+      <div class="rowline total"><span>Monthly total</span><span class="num" id="billTotal"></span></div>
     </div>
   </div>
 </section>
 
 <!-- ================= MORE ================= -->
-<!-- ================= PUNCHES ================= -->
-<section class="view" id="v-punches" hidden>
-  <div class="card">
-    <h3>Punches</h3>
-    <div class="btnrow" style="margin-bottom:12px">
-      <button class="btn primary" id="addPunch">+ Add a punch</button>
-      <button class="btn" id="markDay">PTO / Vacation / Holiday</button>
-    </div>
-    <div id="punchList"></div>
-  </div>
-
-  <div class="card">
-    <h3>PTO / Vacation / Holiday</h3>
-    <div id="markerList"></div>
-  </div>
-
-</section>
-
 <!-- ================= SETTINGS ================= -->
 <section class="view" id="v-more" hidden>
   <div class="card">
@@ -635,7 +641,6 @@ dialog h2 { margin-bottom: 12px; }
   <button data-view="week" data-title="Week"><span class="ic">&#128197;</span>Week</button>
   <button data-view="checks" data-title="Paychecks"><span class="ic">&#128176;</span>Pay</button>
   <button data-view="bills" data-title="Bills"><span class="ic">&#129534;</span>Bills</button>
-  <button data-view="punches" data-title="Punches"><span class="ic">&#128339;</span>Punches</button>
   <button data-view="more" data-title="Settings"><span class="ic">&#9881;</span>Settings</button>
 </nav>
 
@@ -1537,10 +1542,10 @@ dialog h2 { margin-bottom: 12px; }
   /* ---------------- state ---------------- */
 
   var DEFAULT_PREFS = {
-    theme: 'dark', assumedOt15: 0, assumedOt2: 0, weeksBack: 4, weeksAhead: 10,
+    theme: 'dark', assumedOt15: 0, assumedOt2: 0, weeksBack: 0, weeksAhead: 5,
     warnShare: 40, excludeBillIds: [], setupDone: false, pendingHoliday: false,
     offDays: 0, offHours: 0, offMinutes: 0, offPaid: false,
-    billTab: 'monthly', holidayNudgeDismissed: ''
+    billTab: 'monthly', clockTab: 'clock', holidayNudgeDismissed: ''
   };
 
   // The oldest date this person has any data for, so a settings history that
@@ -1555,8 +1560,9 @@ dialog h2 { margin-bottom: 12px; }
     return keys.length ? keys[0] : E.dateKey(Date.now(), tz);
   }
 
-  var DB_VERSION = 4;   // 2: Sunday double time. 3: schedules, no seeded data.
+  var DB_VERSION = 5;   // 2: Sunday double time. 3: schedules, no seeded data.
                         // 4: take-home %, payday setting, settings history.
+                        // 5: paycheck window defaults 0 back / 5 ahead.
 
   // Nothing personal: no rate, no tax, no bills, no overrides. Setup asks.
   function freshDB() {
@@ -1622,6 +1628,11 @@ dialog h2 { margin-bottom: 12px; }
           settings: JSON.parse(JSON.stringify(E.settingsWith(s)))
         }];
       }
+    }
+    if (!(d.v >= 5) && d.prefs) {
+      // Only move someone who never changed these off the old defaults.
+      if (d.prefs.weeksBack === 4) d.prefs.weeksBack = 0;
+      if (d.prefs.weeksAhead === 10) d.prefs.weeksAhead = 5;
     }
     d.settings = s;
     if (!Array.isArray(d.settingsHistory)) d.settingsHistory = [];
@@ -1927,8 +1938,28 @@ dialog h2 { margin-bottom: 12px; }
 
   var tick = null;
 
+  // The clock page holds two tabs: the clock itself and the punch list.
+  function setClockTab(which) {
+    DB.prefs.clockTab = which === 'punches' ? 'punches' : 'clock';
+    save();
+    $('homeClock').hidden = DB.prefs.clockTab !== 'clock';
+    $('homePunches').hidden = DB.prefs.clockTab !== 'punches';
+    Array.prototype.forEach.call($('clockTabs').children, function (b) {
+      if (b.dataset.clocktab === DB.prefs.clockTab) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+    if (current === 'home') {
+      $('viewTitle').textContent = DB.prefs.clockTab === 'punches' ? 'Punches' : 'Clock';
+    }
+    if (DB.prefs.clockTab === 'punches') renderPunches();
+  }
+  Array.prototype.forEach.call($('clockTabs').children, function (b) {
+    b.addEventListener('click', function () { setClockTab(b.dataset.clocktab); });
+  });
+
   function renderHome() {
     $('setupCard').hidden = !!DB.prefs.setupDone && !!S().hourlyRate;
+    setClockTab(DB.prefs.clockTab);
     var act = activeSession();
     var btn = $('punchBtn');
     btn.className = 'punchbtn ' + (act ? 'out' : 'in');
@@ -3137,7 +3168,7 @@ dialog h2 { margin-bottom: 12px; }
     save(); applyTheme();
   });
 
-  var VIEWS = ['home', 'week', 'checks', 'bills', 'punches', 'more'];
+  var VIEWS = ['home', 'week', 'checks', 'bills', 'more'];
   var current = 'home';
   function show(v) {
     if (VIEWS.indexOf(v) === -1) v = 'home';
@@ -3161,7 +3192,6 @@ dialog h2 { margin-bottom: 12px; }
     else if (current === 'week') renderWeek();
     else if (current === 'checks') renderChecks();
     else if (current === 'bills') renderBills();
-    else if (current === 'punches') renderPunches();
     else if (current === 'more') renderSettings();
   }
 
