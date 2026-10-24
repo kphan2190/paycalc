@@ -417,13 +417,6 @@ dialog h2 { margin-bottom: 12px; }
     <div class="warnbox" id="holidayNudge" hidden></div>
   </div>
 
-  <div class="card">
-    <h3>Quick actions</h3>
-    <div class="btnrow">
-      <button class="btn" id="addPunchHome">+ Missed punch</button>
-      <button class="btn" id="markDayHome">PTO / Vacation / Holiday</button>
-    </div>
-  </div>
   </div>
 
   <div id="homePunches" hidden>
@@ -485,7 +478,7 @@ dialog h2 { margin-bottom: 12px; }
 
   <div id="payBody">
   <div class="card">
-    <button class="cardtoggle" id="projToggle" type="button" aria-expanded="false">
+    <button class="cardtoggle" id="projToggle" type="button" data-panel="projBody" aria-expanded="false">
       <span>Projection</span>
       <span class="chev" aria-hidden="true">&#9662;</span>
     </button>
@@ -576,7 +569,11 @@ dialog h2 { margin-bottom: 12px; }
 <!-- ================= SETTINGS ================= -->
 <section class="view" id="v-more" hidden>
   <div class="card">
-    <h3>Your schedule</h3>
+    <button class="cardtoggle" type="button" data-panel="schedulePanel" aria-expanded="false">
+      <span>Your schedule</span>
+      <span class="chev" aria-hidden="true">&#9662;</span>
+    </button>
+    <div id="schedulePanel" hidden>
     <label class="field"><span>Shift pattern</span>
       <select id="s_schedulePreset"></select></label>
     <div class="grid2">
@@ -585,15 +582,20 @@ dialog h2 { margin-bottom: 12px; }
     </div>
     <div class="field"><span class="sub" style="display:block;margin-bottom:7px;font-weight:600">Days you are scheduled</span>
       <div class="dayboxes" id="s_days"></div></div>
-    <label class="field" id="anchorField" hidden><span>An overnight shift counts as</span>
+      <label class="field" id="anchorField" hidden><span>An overnight shift counts as</span>
       <select id="s_anchor">
         <option value="end">The day it ends (10 PM Sun is Monday's shift)</option>
         <option value="start">The day it starts</option>
       </select></label>
+    </div>
   </div>
 
   <div class="card">
-    <h3>Pay</h3>
+    <button class="cardtoggle" type="button" data-panel="payPanel" aria-expanded="false">
+      <span>Pay</span>
+      <span class="chev" aria-hidden="true">&#9662;</span>
+    </button>
+    <div id="payPanel" hidden>
     <div class="grid2">
       <label class="field"><span>Hourly rate</span><input type="number" id="s_hourlyRate" step="0.01" min="0"></label>
       <label class="field"><span>Take-home %</span><input type="number" id="s_takeHomePct" step="0.5" min="0" max="100"></label>
@@ -605,10 +607,15 @@ dialog h2 { margin-bottom: 12px; }
         <select id="s_payDow"></select></label>
       <label class="field"><span>Time zone</span><input type="text" id="s_timezone"></label>
     </div>
+    </div>
   </div>
 
   <div class="card">
-    <h3>Overtime and premiums</h3>
+    <button class="cardtoggle" type="button" data-panel="overtimePanel" aria-expanded="false">
+      <span>Overtime and premiums</span>
+      <span class="chev" aria-hidden="true">&#9662;</span>
+    </button>
+    <div id="overtimePanel" hidden>
     <div class="grid2">
       <label class="field"><span>Scheduled day: hrs at 1.5x</span><input type="number" id="s_scheduledOt15Cap" step="0.25" min="0"></label>
       <label class="field"><span>Day off: hrs at 1.5x</span><input type="number" id="s_offDayOt15Cap" step="0.25" min="0"></label>
@@ -639,21 +646,28 @@ dialog h2 { margin-bottom: 12px; }
     </div>
     <label class="field"><span>Warn when bills exceed this share of net</span>
       <input type="number" id="s_warnShare" step="5" min="0" max="100"></label>
-    <h3 style="margin-top:14px">Union dues</h3>
-    <label class="field"><span>Deduct union dues</span>
-      <select id="s_duesEnabled">
-        <option value="0">Off</option>
-        <option value="1">On, first paycheck of each month</option>
-      </select></label>
-    <div class="grid2">
-      <label class="field"><span>Hourly rate multiplier</span><input type="number" id="s_duesMultiplier" step="0.1" min="0"></label>
-      <label class="field"><span>Flat amount</span><input type="number" id="s_duesFlat" step="0.01" min="0"></label>
-    </div>
-    <div class="sub" id="duesNote" style="margin-bottom:12px"></div>
     <div class="sub" id="saveNote" style="margin-top:6px">Changes save as you make them, and
       apply to the current and future paychecks. Past paychecks are not changed.</div>
-    <div class="btnrow" style="margin-top:10px">
-      <button class="btn" id="resetSettings">Restore defaults</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <button class="cardtoggle" type="button" data-panel="duesPanel" aria-expanded="false">
+      <span>Union dues</span>
+      <span class="chev" aria-hidden="true">&#9662;</span>
+    </button>
+    <div id="duesPanel" hidden>
+      <label class="field"><span>Deduct union dues</span>
+        <select id="s_duesEnabled">
+          <option value="0">Off</option>
+          <option value="1">On, first paycheck of each month</option>
+        </select></label>
+      <div class="grid2">
+        <label class="field"><span>Hourly rate multiplier</span><input type="number" id="s_duesMultiplier" step="0.1" min="0"></label>
+        <label class="field"><span>Flat amount</span><input type="number" id="s_duesFlat" step="0.01" min="0"></label>
+      </div>
+      <div class="sub" id="duesNote">Dues are worked out from the hourly rate alone; the shift
+        premium is not counted.</div>
     </div>
   </div>
 
@@ -1339,6 +1353,32 @@ dialog h2 { margin-bottom: 12px; }
     return 0;
   }
 
+  /* Hours a marked day takes you away from work, paid or not. PTO and a paid
+     holiday still pay, but you are not there, so no overtime happens on them. */
+  function markerHoursOff(marker, settings) {
+    var st = settingsWith(settings);
+    var m = normaliseMarker(marker);
+    if (!m) return 0;
+    var full = dailyHoursOf(st.schedule);
+    if (m.type === 'other') {
+      // Same reading of fullDay as markerUnpaidHours, so the two never disagree.
+      if (m.fullDay) return full;
+      return Math.min(full, Math.max(0, (+m.hours || 0) + (+m.minutes || 0) / 60));
+    }
+    return full;
+  }
+
+  // Scheduled hours in a week that a marked day removes.
+  function hoursOffInWeek(weekStartKeyValue, settings, dayMarkers) {
+    var st = settingsWith(settings), markers = dayMarkers || {}, off = 0;
+    for (var i = 0; i < 7; i++) {
+      var k = addDaysKey(weekStartKeyValue, i);
+      if (dayKind(k, st) !== 'scheduled') continue;
+      off += markerHoursOff(markers[k], st);
+    }
+    return off;
+  }
+
   // Hours of base pay a marked day still pays, for display.
   function markerPaidHours(marker, settings) {
     var st = settingsWith(settings);
@@ -1492,14 +1532,22 @@ dialog h2 { margin-bottom: 12px; }
       if (isOverride(ov)) {
         source = 'override';
         pay = payFromOverride(ov, st, ws, markers);
-      } else if (actual) {
+      // Marking a day off does not make a week "logged" -- only real hours do.
+      } else if (actual && actual.pay.totalHours > 0) {
         source = 'actual';
         pay = actual.pay;
       } else {
         source = 'projected';
         var wb = weekBase(ws, st, markers);
+        // A day marked off is a day you earn no overtime on, so the assumption
+        // is scaled to the scheduled time actually left in the week. Only that
+        // day drops out; the rest of the week still projects.
+        var fullWeek = scheduledWeeklyHours(st.schedule);
+        var offHours = hoursOffInWeek(ws, st, markers);
+        var working = Math.max(0, fullWeek - offHours);
+        var share = fullWeek > 0 ? working / fullWeek : 0;
         pay = payFromHours(
-          { regularHours: scheduledWeeklyHours(st.schedule), ot15: assumed15, ot2: assumed2 },
+          { regularHours: working, ot15: assumed15 * share, ot2: assumed2 * share },
           st, { baseGross: wb.baseGross, unpaidDays: wb.unpaidDays,
                 unpaidHours: assumedUnpaidHours });
       }
@@ -1554,6 +1602,7 @@ dialog h2 { margin-bottom: 12px; }
     payRate: payRate,
     DAY_OFF_TYPES: DAY_OFF_TYPES, normaliseMarker: normaliseMarker,
     markerUnpaidHours: markerUnpaidHours, markerPaidHours: markerPaidHours,
+    markerHoursOff: markerHoursOff, hoursOffInWeek: hoursOffInWeek,
     oneTimeNet: oneTimeNet, oneTimeInRange: oneTimeInRange,
     duesFor: duesFor, isFirstPaydayOfMonth: isFirstPaydayOfMonth,
     dayKind: dayKind, tierCapFor: tierCapFor, tierDayOt: tierDayOt,
@@ -2334,21 +2383,23 @@ dialog h2 { margin-bottom: 12px; }
     if (e.key === 'Escape' && !$('checkSheet').hidden) closeCheckSheet();
   });
 
-  /* The projection controls are tucked away by default: they are set once in a
-     while, not read. Deliberately not stored, so each load starts folded. */
-  var projOpen = false;
-  function setProjOpen(open) {
-    projOpen = !!open;
-    $('projBody').hidden = !projOpen;
-    $('projToggle').setAttribute('aria-expanded', projOpen ? 'true' : 'false');
-  }
-  $('projToggle').addEventListener('click', function () { setProjOpen(!projOpen); });
+  /* Foldable cards. Anything with a .cardtoggle header opens the panel it names.
+     All of them start closed on every load: these are settings you change now and
+     then, not figures you read. */
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('.cardtoggle') : null;
+    if (!btn) return;
+    var panel = $(btn.dataset.panel);
+    if (!panel) return;
+    var open = panel.hidden;
+    panel.hidden = !open;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
 
   function renderChecks() {
     $('payGate').hidden = payDowChosen();
     $('payBody').hidden = !payDowChosen();
     if (!payDowChosen()) return;
-    setProjOpen(projOpen);
     $('assumedOt').value = DB.prefs.assumedOt15;
     $('assumedOt2').value = DB.prefs.assumedOt2;
     $('offDays').value = DB.prefs.offDays || 0;
@@ -2823,7 +2874,6 @@ dialog h2 { margin-bottom: 12px; }
     });
   }
   $('addPunch').addEventListener('click', function () { punchDialog(null); });
-  $('addPunchHome').addEventListener('click', function () { punchDialog(null); });
 
   function markerDialog(k) {
     var cur = E.normaliseMarker(k ? DB.dayMarkers[k] : null) || { type: 'pto' };
@@ -2892,7 +2942,6 @@ dialog h2 { margin-bottom: 12px; }
     return base + ' \u2014 ' + hrs(off) + ' unpaid';
   }
   $('markDay').addEventListener('click', function () { markerDialog(null); });
-  $('markDayHome').addEventListener('click', function () { markerDialog(null); });
 
   /* ---------------- SETTINGS ---------------- */
 
@@ -3086,14 +3135,6 @@ dialog h2 { margin-bottom: 12px; }
     describeSchedule();
     toast('Saved');
   }
-
-  $('resetSettings').addEventListener('click', function () {
-    confirmThen('Restore all pay rules to their defaults? That clears your rate and tax too. Punches and bills are untouched.', function () {
-      DB.settings = JSON.parse(JSON.stringify(E.DEFAULT_SETTINGS));
-      DB.prefs.warnShare = DEFAULT_PREFS.warnShare;
-      save(); renderAll(); toast('Defaults restored');
-    });
-  });
 
   /* ---- what the rules work out to, for the person who entered them ---- */
   function renderDerived() {
