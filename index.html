@@ -201,12 +201,32 @@ nav.tabs button[aria-current="page"] { color: var(--accent); }
 .cardtoggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
 .cardtoggle[aria-expanded="true"] { color: var(--text); }
 
-.tabrow { display: flex; gap: 6px; margin-bottom: 12px; }
-.tabbtn {
-  flex: 1; min-height: 42px; border: 1px solid var(--line); background: var(--bg);
-  color: var(--muted); border-radius: 10px; font-weight: 600; cursor: pointer;
+/* Tabs read as a strip of browser tabs rather than a row of buttons: they share
+   one rule along the bottom, and the selected tab rises through it and takes the
+   panel's own background, so the two look like one surface. */
+.tabrow {
+  display: flex; gap: 3px; margin-bottom: 14px;
+  border-bottom: 1px solid var(--line);
 }
-.tabbtn[aria-current="page"] { border-color: var(--accent); color: var(--accent); background: var(--surface-2); }
+.tabbtn {
+  flex: 1; min-height: 42px; padding: 0 10px;
+  position: relative; bottom: -1px;          /* sit on the row's rule */
+  border: 1px solid transparent;
+  border-bottom-color: var(--line);
+  border-radius: 11px 11px 0 0;
+  background: transparent; color: var(--muted);
+  font-weight: 600; cursor: pointer;
+}
+.tabbtn[aria-current="page"] {
+  background: var(--surface);
+  border-color: var(--line);
+  border-bottom-color: var(--surface);       /* breaks the rule under this tab */
+  color: var(--text);
+  box-shadow: inset 0 2px 0 var(--accent);   /* the active marker, along the top */
+}
+@media (hover: hover) {
+  .tabbtn:not([aria-current="page"]):hover { color: var(--text); background: var(--surface-2); }
+}
 .wbrow { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
 .wbrow + .wbrow { border-top: 1px solid var(--line); }
 .wbrow .wbday { flex: 1; font-weight: 600; }
@@ -496,11 +516,17 @@ dialog h2 { margin-bottom: 12px; }
 
   <div id="payBody">
   <div class="card">
-    <button class="cardtoggle" id="projToggle" type="button" data-panel="projBody" aria-expanded="false">
-      <span>Projection</span>
-      <span class="chev" aria-hidden="true">&#9662;</span>
-    </button>
-    <div id="projBody" hidden>
+    <div class="tabrow" id="payTabs">
+      <button class="tabbtn" data-paytab="checks" aria-current="page">Paychecks</button>
+      <button class="tabbtn" data-paytab="projection">Projection</button>
+    </div>
+
+    <div id="payChecksPanel">
+      <div id="checkList"></div>
+      <div class="rowline total"><span>Potential savings <span class="sub">across every paycheck shown</span></span><span class="num savings" id="runningTotal"></span></div>
+    </div>
+
+    <div id="payProjPanel" hidden>
     <div class="grid2">
       <label class="field"><span>Assumed OT hrs/week at 1.5x</span>
         <input type="number" id="assumedOt" step="0.25" min="0"></label>
@@ -528,11 +554,6 @@ dialog h2 { margin-bottom: 12px; }
     <div class="sub">Weeks with logged punches always use the real hours. Weeks with a manual
       override use that. Everything else uses the assumed OT above.</div>
     </div>
-  </div>
-  <div class="card">
-    <h3>Paychecks</h3>
-    <div id="checkList"></div>
-    <div class="rowline total"><span>Potential savings <span class="sub">across every paycheck shown</span></span><span class="num savings" id="runningTotal"></span></div>
   </div>
   <div class="card">
     <h3>One-time pay</h3>
@@ -2417,7 +2438,25 @@ dialog h2 { margin-bottom: 12px; }
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   });
 
+  /* Paychecks and the projection settings behind them share one card. Like the
+     clock page, the tab is not remembered: arriving at PayCalc always shows the
+     paychecks, which is what the page is for. */
+  var payTab = 'checks';
+  function setPayTab(which) {
+    payTab = which === 'projection' ? 'projection' : 'checks';
+    $('payChecksPanel').hidden = payTab !== 'checks';
+    $('payProjPanel').hidden = payTab !== 'projection';
+    Array.prototype.forEach.call($('payTabs').children, function (b) {
+      if (b.dataset.paytab === payTab) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
+    });
+  }
+  Array.prototype.forEach.call($('payTabs').children, function (b) {
+    b.addEventListener('click', function () { setPayTab(b.dataset.paytab); });
+  });
+
   function renderChecks() {
+    setPayTab(payTab);
     $('payGate').hidden = payDowChosen();
     $('payBody').hidden = !payDowChosen();
     if (!payDowChosen()) return;
@@ -3367,6 +3406,7 @@ dialog h2 { margin-bottom: 12px; }
     if (VIEWS.indexOf(v) === -1) v = 'home';
     if (!$('checkSheet').hidden) closeCheckSheet();
     if (v === 'home') clockTab = 'clock';
+    if (v === 'checks') payTab = 'checks';
     current = v;
     VIEWS.forEach(function (x) { $('v-' + x).hidden = x !== v; });
     Array.prototype.forEach.call($('tabs').children, function (b) {
