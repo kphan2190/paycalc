@@ -138,6 +138,8 @@ nav.tabs button[aria-current="page"] { color: var(--accent); }
 .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pos { color: var(--go); }
 .neg { color: var(--stop); }
+/* A potential-savings figure uses the strongest green in the pay palette. */
+.savings { color: var(--pay-2x); }
 .c15 { color: var(--pay-1-5x); }
 .c2 { color: var(--pay-2x); }
 .warnbox {
@@ -473,7 +475,7 @@ dialog h2 { margin-bottom: 12px; }
   <div class="card">
     <h3>Paychecks</h3>
     <div id="checkList"></div>
-    <div class="rowline total"><span>Running savings <span class="sub">across every paycheck shown</span></span><span class="num pos" id="runningTotal"></span></div>
+    <div class="rowline total"><span>Potential savings <span class="sub">across every paycheck shown</span></span><span class="num savings" id="runningTotal"></span></div>
   </div>
   <div class="card">
     <h3>One-time pay</h3>
@@ -569,7 +571,7 @@ dialog h2 { margin-bottom: 12px; }
     <div class="sub" id="lapseNote" hidden style="margin-bottom:12px"></div>
     <div class="sub" style="margin-bottom:12px">Past those hours the day pays 2x. The last day off
       before your next shift pays 2x from the first minute.</div>
-    <label class="field"><span>Short-week premium</span>
+    <label class="field"><span>AWW premium</span>
       <select id="s_premiumMode">
         <option value="derived">Make whole to a full week (recommended)</option>
         <option value="fixed">Fixed percentage</option>
@@ -928,7 +930,7 @@ dialog h2 { margin-bottom: 12px; }
   }
 
   /**
-   * The premium that makes a short schedule whole to a full week.
+   * The AWW premium, which makes a short schedule whole to a full week.
    * 3 x 12 = 36 scheduled hours against a 40-hour week gives 11.111%,
    * so the weekly base matches a 5 x 8 schedule exactly. Never negative:
    * a schedule longer than a full week is not docked.
@@ -947,7 +949,7 @@ dialog h2 { margin-bottom: 12px; }
     var st = settingsWith(settings);
     return (st.hourlyRate || 0) + (st.shiftPremium || 0);
   }
-  // What one hour of base time is worth, short-week premium included.
+  // What one hour of base time is worth, AWW premium included.
   function baseHourly(settings) {
     var st = settingsWith(settings);
     return payRate(st) * (1 + premiumFor(st));
@@ -2216,8 +2218,8 @@ dialog h2 { margin-bottom: 12px; }
       row(b, 'Weekly bills', money(p.weeklyBillsTotal));
     }
     row(b, 'Bills total', money(p.allBillsTotal != null ? p.allBillsTotal : p.billsTotal), 'total');
-    row(b, 'Potential savings', money(p.savings), 'total ' + (p.savings >= 0 ? 'pos' : 'neg'));
-    row(b, 'Running savings', money(p.runningSavings), 'total');
+    row(b, 'Potential savings', money(p.savings),
+        'total ' + (p.savings >= 0 ? 'savings' : 'neg'));
     if (p.net > 0 && p.billsTotal / p.net >= warnShare && warnShare > 0) {
       b.appendChild(el('div', 'warnbox', 'Heavy check: bills are ' +
         Math.round(100 * p.billsTotal / p.net) + '% of net pay.'));
@@ -2237,7 +2239,7 @@ dialog h2 { margin-bottom: 12px; }
     var head = el('div', 'sheethead');
     head.innerHTML = '<div><strong>' + esc(fmtKey(p.payday, true)) + '</strong> ' + tag +
       '<div class="sub">week ' + esc(fmtKey(p.weekStart)) + '&ndash;' + esc(fmtKey(p.weekEnd)) + '</div></div>' +
-      '<div class="num ' + (p.savings >= 0 ? 'pos' : 'neg') + '"><strong>' + esc(money(p.savings)) + '</strong></div>';
+      '<div class="num ' + (p.savings >= 0 ? 'savings' : 'neg') + '"><strong>' + esc(money(p.savings)) + '</strong></div>';
     card.appendChild(head);
     card.appendChild(buildCheckBody(p));
     var closeRow = el('div', 'closerow');
@@ -2287,7 +2289,7 @@ dialog h2 { margin-bottom: 12px; }
       rowEl.innerHTML = '<span><strong>' + esc(fmtKey(p.payday, true)) + '</strong> ' + tag +
         '<div class="sub">week ' + esc(fmtKey(p.weekStart)) + '&ndash;' + esc(fmtKey(p.weekEnd)) +
         ' &middot; bills ' + esc(money(p.allBillsTotal != null ? p.allBillsTotal : p.billsTotal)) + '</div></span>' +
-        '<span class="num ' + (p.savings >= 0 ? 'pos' : 'neg') + '"><strong>' +
+        '<span class="num ' + (p.savings >= 0 ? 'savings' : 'neg') + '"><strong>' +
         esc(money(p.savings)) + '</strong></span>';
       rowEl.addEventListener('click', function () { openCheckSheet(p); });
       list.appendChild(rowEl);
@@ -3015,17 +3017,27 @@ dialog h2 { margin-bottom: 12px; }
       return;
     }
     var prem = E.premiumFor(st);
+    var payRate = E.payRate(st);
+    row(out, 'Hourly rate', rate(st.hourlyRate) + '/h');
+    row(out, 'Shift premium', (st.shiftPremium ? rate(st.shiftPremium) + '/h' : 'None'));
+    row(out, 'Pay rate', rate(payRate) + '/h', 'total');
     row(out, 'Shift length', hnum(E.dailyHoursOf(sc)) + ' h');
     row(out, 'Scheduled hours a week', hnum(E.scheduledWeeklyHours(sc)) + ' h');
-    row(out, 'Short-week premium', hnum(Math.round(prem * 1e6) / 1e4) + '%');
+    row(out, 'AWW premium', hnum(Math.round(prem * 1e6) / 1e4) + '%');
     row(out, 'Base for one scheduled day', money(E.dailyBase(st)));
-    row(out, 'Overtime at 1.5x', rate(st.hourlyRate * st.ot15Multiplier) + '/h', 'c15');
-    row(out, 'Overtime at 2x', rate(st.hourlyRate * st.ot2Multiplier) + '/h', 'c2');
+    // These follow the PAY rate, so the shift premium is already in them.
+    row(out, 'Overtime at 1.5x', rate(payRate * st.ot15Multiplier) + '/h', 'c15');
+    row(out, 'Overtime at 2x', rate(payRate * st.ot2Multiplier) + '/h', 'c2');
     var full = E.payFromHours({ regularHours: E.scheduledWeeklyHours(sc), ot15: 0, ot2: 0 }, st, {});
     row(out, 'A plain week, gross', money(full.gross), 'total');
     row(out, 'A plain week, net at ' + hnum(st.takeHomePct) + '% take-home', money(full.net), 'total pos');
+    if (st.shiftPremium) {
+      out.appendChild(el('div', 'sub', 'The shift premium is part of the pay rate, so it is in the ' +
+        'base, the overtime rates and any unpaid deduction. Union dues are worked out from the ' +
+        'hourly rate alone and do not include it.'));
+    }
     if (prem > 0) {
-      out.appendChild(el('div', 'sub', 'Your schedule is short of a ' + hnum(st.fullWeekHours) +
+      out.appendChild(el('div', 'sub', 'Your AWW schedule is short of a ' + hnum(st.fullWeekHours) +
         '-hour week, so the premium lifts each scheduled day to make it whole.'));
     }
   }
