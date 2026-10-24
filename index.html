@@ -16,6 +16,7 @@
   --surface: #ffffff;
   --surface-2: #eceef2;
   --line: #d7dae1;
+  --line-strong: #9aa2b1;
   --text: #15181d;
   --muted: #5e6672;
   --accent: #1f6feb;
@@ -39,6 +40,7 @@ html:not([data-theme="light"]) {
   --surface: #171a21;
   --surface-2: #21252e;
   --line: #2c3240;
+  --line-strong: #4b5570;
   --text: #e8eaee;
   --muted: #98a1b0;
   --accent: #4f8cf7;
@@ -58,6 +60,7 @@ html:not([data-theme="light"]) {
   --surface: #ffffff;
   --surface-2: #eceef2;
   --line: #d7dae1;
+  --line-strong: #9aa2b1;
   --text: #15181d;
   --muted: #5e6672;
   --accent: #1f6feb;
@@ -136,7 +139,7 @@ nav.tabs button[aria-current="page"] { color: var(--accent); }
 .pos { color: var(--go); }
 .neg { color: var(--stop); }
 .c15 { color: var(--pay-1-5x); }
-.c2 { color: var(--pay-2x); font-weight: 650; }
+.c2 { color: var(--pay-2x); }
 .warnbox {
   background: var(--warn-bg); color: var(--warn); border: 1px solid currentColor;
   border-radius: 10px; padding: 9px 11px; font-size: 0.85rem; margin: 10px 0 0;
@@ -267,8 +270,17 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
 .tag.actual { color: var(--go); }
 .tag.proj { color: var(--accent); }
 .tag.over { color: var(--warn); }
-details.check { border-top: 1px solid var(--line); padding: 4px 0; }
-details.check:first-of-type { border-top: 0; }
+/* Each paycheck is separated by a heavier rule with more air around it, so it
+   is clearly a different level from the 1px line-item rules inside one. */
+details.check {
+  border-top: 2px solid var(--line-strong);
+  margin-top: 10px;
+  padding: 8px 0 2px;
+}
+details.check:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }
+/* An open paycheck's rows sit slightly inset, which reinforces the hierarchy
+   without moving the figures out of their column. */
+details.check[open] > .body { padding-left: 10px; border-left: 2px solid var(--surface-2); }
 details.check > summary {
   cursor: pointer; padding: 9px 2px; display: flex; gap: 10px;
   align-items: baseline; justify-content: space-between; list-style: none;
