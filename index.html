@@ -50,7 +50,7 @@
   --stop: #FF0000;
   --warn: #8a5300;
   --warn-bg: #fff4d6;
-  --pay-base: inherit;
+  --pay-base: #008000;
   --pay-1-5x: #0d8f4a;
   --pay-2x: #008000;
   --ot15: var(--pay-1-5x);
@@ -76,7 +76,7 @@
     --stop: #ff6b6b;
     --warn: #ffcb6b;
     --warn-bg: #3a2d10;
-    --pay-base: inherit;
+    --pay-base: #2fbd7a;
     --pay-1-5x: #5bd98a;
     --pay-2x: #22e07a;
     --ot15: var(--pay-1-5x);
@@ -98,7 +98,7 @@
   --stop: #ff6b6b;
   --warn: #ffcb6b;
   --warn-bg: #3a2d10;
-  --pay-base: inherit;
+  --pay-base: #2fbd7a;
   --pay-1-5x: #5bd98a;
   --pay-2x: #22e07a;
   --ot15: var(--pay-1-5x);
@@ -122,7 +122,7 @@
   --stop: #FF0000;
   --warn: #8a5300;
   --warn-bg: #fff4d6;
-  --pay-base: inherit;
+  --pay-base: #008000;
   --pay-1-5x: #0d8f4a;
   --pay-2x: #008000;
   --ot15: var(--pay-1-5x);
@@ -195,6 +195,9 @@ nav.tabs button[aria-current="page"] { color: var(--accent); }
 .savings { color: var(--pay-2x); }
 .c15 { color: var(--pay-1-5x); }
 .c2 { color: var(--pay-2x); }
+/* Shift hours read green once any are logged, the same way the two overtime
+   tiers do. Its own token, so base stays distinct from 1.5x and 2x. */
+.cbase { color: var(--pay-base); }
 .warnbox {
   background: var(--warn-bg); color: var(--warn); border: 1px solid currentColor;
   border-radius: 10px; padding: 9px 11px; font-size: 0.85rem; margin: 10px 0 0;
@@ -332,6 +335,22 @@ textarea { min-height: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, 
    minimum width, which a date or time input sets wider than half a card. */
 .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .grid2 > * { min-width: 0; }
+
+/* A typed 12-hour time, with AM/PM as a toggle rather than another thing to
+   type. The box is deliberately narrow: it never holds more than "12:34". */
+.timerow { display: flex; align-items: stretch; gap: 8px; }
+.timerow input { flex: 0 1 8.5em; min-width: 0; text-align: center; letter-spacing: 0.04em; }
+.ampm {
+  display: flex; flex: none; align-self: stretch;
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  background: var(--bg);
+}
+.ampm button {
+  min-width: 48px; padding: 0 10px; border: 0; cursor: pointer;
+  background: none; color: var(--muted); font-weight: 700; font-size: 0.85rem;
+}
+.ampm button + button { border-left: 1px solid var(--line); }
+.ampm button.on { background: var(--accent); color: var(--accent-text); }
 /* 480, not 420: the largest iPhones are 430 CSS px wide in portrait, and two
    date or time fields do not fit across one at that width. A single column is
    the better phone layout anyway -- full-width fields are easier to hit. */
@@ -344,6 +363,20 @@ textarea { min-height: 120px; font-family: ui-monospace, SFMono-Regular, Menlo, 
 input[type="date"], input[type="time"], input[type="datetime-local"] {
   -webkit-appearance: none;
   appearance: none;
+}
+
+/* An unset date reads "Choose date" rather than an mm/dd/yyyy skeleton. The
+   native edit fields are hidden rather than removed, so the control keeps its
+   size and still opens its picker on tap. If a browser will not render ::before
+   on an input, the field simply looks empty -- no worse than before. */
+input.empty[type="date"], input.empty[type="datetime-local"] { position: relative; }
+input.empty[type="date"]::-webkit-datetime-edit,
+input.empty[type="datetime-local"]::-webkit-datetime-edit { opacity: 0; }
+input.empty[type="date"]::before,
+input.empty[type="datetime-local"]::before {
+  content: attr(data-empty);
+  position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+  color: var(--muted); pointer-events: none; white-space: nowrap;
 }
 input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent); }
 
@@ -2002,6 +2035,37 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
   /* ---------------- generic dialog ---------------- */
 
   var dlgHandler = null;
+  /* ---------- 12-hour time entry ----------
+     A text box that types like a clock: the digits go in and the colon places
+     itself, so 234 reads 2:34 and 1234 reads 12:34. One or two digits are an
+     hour on the hour. AM or PM is a toggle beside it rather than something else
+     to type. Anything that is not a real 12-hour time is refused on save, with
+     the dialog left open so nothing typed is lost. */
+  function to12(hhmm) {
+    var m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm || ''));
+    if (!m) return { text: '', ap: 'AM' };
+    var h = +m[1], h12 = h % 12;
+    if (h12 === 0) h12 = 12;
+    return { text: h12 + ':' + m[2], ap: h >= 12 ? 'PM' : 'AM' };
+  }
+  // '' for an empty field, null for something that is not a time.
+  function from12(text, ap) {
+    var d = String(text == null ? '' : text).replace(/\D/g, '');
+    if (!d) return '';
+    if (d.length > 4) return null;
+    var h, mi;
+    if (d.length <= 2) { h = +d; mi = 0; }
+    else { h = +d.slice(0, d.length - 2); mi = +d.slice(-2); }
+    if (!(h >= 1 && h <= 12) || !(mi >= 0 && mi <= 59)) return null;
+    var h24 = h % 12;
+    if (ap === 'PM') h24 += 12;
+    return E.pad(h24) + ':' + E.pad(mi);
+  }
+  function typeTime(v) {
+    var d = String(v).replace(/\D/g, '').slice(0, 4);
+    return d.length <= 2 ? d : d.slice(0, d.length - 2) + ':' + d.slice(-2);
+  }
+
   function openForm(title, fields, onSave, okLabel) {
     $('dlgTitle').textContent = title;
     $('dlgOk').textContent = okLabel || 'Save';
@@ -2020,6 +2084,39 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
           inp.appendChild(op);
         });
         inp.value = f.value == null ? '' : String(f.value);
+      } else if (f.type === 'time12') {
+        var init = to12(f.value);
+        var wrap = el('div', 'timerow');
+        inp = el('input');
+        inp.type = 'text';
+        inp.setAttribute('inputmode', 'numeric');
+        inp.setAttribute('autocomplete', 'off');
+        inp.setAttribute('placeholder', '--:--');
+        inp.maxLength = 5;
+        inp.value = init.text;
+        inp.dataset.ap = init.ap;
+        inp.addEventListener('input', function () {
+          var t = typeTime(inp.value);
+          if (t !== inp.value) inp.value = t;
+        });
+        wrap.appendChild(inp);
+        var seg = el('div', 'ampm');
+        ['AM', 'PM'].forEach(function (ap) {
+          var b = el('button', ap === init.ap ? 'on' : null, ap);
+          b.type = 'button';
+          b.addEventListener('click', function () {
+            inp.dataset.ap = ap;
+            Array.prototype.forEach.call(seg.children, function (x) {
+              if (x === b) x.classList.add('on'); else x.classList.remove('on');
+            });
+          });
+          seg.appendChild(b);
+        });
+        wrap.appendChild(seg);
+        inp.id = 'f_' + f.key;
+        lab.appendChild(wrap);
+        body.appendChild(lab);
+        return;
       } else if (f.type === 'checkbox') {
         inp = el('input'); inp.type = 'checkbox'; inp.checked = !!f.value;
         lab.style.display = 'flex'; lab.style.alignItems = 'center'; lab.style.gap = '10px';
@@ -2031,6 +2128,28 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
         if (f.min != null) inp.min = f.min;
         if (f.max != null) inp.max = f.max;
         inp.value = f.value == null ? '' : f.value;
+        /* An empty date field shows "Choose date" instead of an mm/dd/yyyy
+           skeleton. The native picker still opens on tap, as it always did. */
+        if (inp.type === 'date' || inp.type === 'datetime-local') {
+          inp.setAttribute('data-empty',
+            inp.type === 'date' ? 'Choose date' : 'Choose date and time');
+          var mark = function () {
+            if (inp.value) inp.classList.remove('empty');
+            else inp.classList.add('empty');
+          };
+          mark();
+          inp.addEventListener('input', mark);
+          inp.addEventListener('change', mark);
+        }
+        /* Tapping anywhere on the field opens the picker, not just the little
+           icon at the end. showPicker needs a user gesture, which a click is. */
+        if (inp.type === 'date' || inp.type === 'datetime-local' || inp.type === 'time') {
+          inp.addEventListener('click', function () {
+            if (typeof inp.showPicker === 'function') {
+              try { inp.showPicker(); } catch (e) { /* not allowed here: the icon still works */ }
+            }
+          });
+        }
       }
       inp.id = 'f_' + f.key;
       if (f.type !== 'checkbox') lab.appendChild(inp);
@@ -2044,9 +2163,23 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
         var i = $('f_' + f.key);
         out[f.key] = f.type === 'checkbox' ? i.checked
                    : f.type === 'number' ? (i.value === '' ? null : +i.value)
+                   : f.type === 'time12' ? (from12(i.value, i.dataset.ap) || '')
                    : i.value;
       });
       onSave(out);
+    };
+    dlgValidate = function () {
+      var bad = null;
+      fields.forEach(function (f) {
+        if (bad || f.type !== 'time12') return;
+        var i = $('f_' + f.key);
+        if (i && from12(i.value, i.dataset.ap) === null) bad = f.label;
+      });
+      if (bad) {
+        toast(String(bad).replace(/ \(.*$/, '') + ': enter a time in 12 hour format');
+        return false;
+      }
+      return true;
     };
     dlgIntent = 'cancel';
     $('dlg').showModal();
@@ -2057,9 +2190,11 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
      primary commit and `close` is only a fallback; whichever arrives first
      consumes the handler, so the other is a no-op. */
   var dlgIntent = 'cancel';
+  var dlgValidate = null;
   function commitDialog(ok) {
     var h = dlgHandler;
     dlgHandler = null;
+    dlgValidate = null;
     dlgIntent = 'cancel';
     if (h) h(ok);
   }
@@ -2068,6 +2203,8 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
 
   $('dlgForm').addEventListener('submit', function (e) {
     var ok = e.submitter ? e.submitter.value === 'ok' : dlgIntent === 'ok';
+    // A bad time keeps the dialog open rather than throwing the form away.
+    if (ok && dlgValidate && !dlgValidate()) { e.preventDefault(); return; }
     commitDialog(ok);
     // method="dialog" normally closes it; close it ourselves where that fails.
     if ($('dlg').open) { try { $('dlg').close(ok ? 'ok' : 'cancel'); } catch (err) {} }
@@ -2121,6 +2258,67 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
       return { pay: E.payFromOverride(ov, wst, wk.weekStart, DB.dayMarkers), override: ov };
     }
     return { pay: wk.pay, override: null };
+  }
+
+  /* What a week has actually earned so far. The base accrues a day at a time,
+     and only for a day that has happened -- hours clocked on it, or a marker
+     that pays it. Overtime is whatever is banked. A manual entry replaces the
+     lot, because it is the week's stated answer.
+
+     Shared by the Earned tab and the clock page's next-paycheck figure, so the
+     two cannot tell different stories about the same week. */
+  function earnedForWeek(wk) {
+    var st = settingsForWeek(wk.weekStart), tk = todayKey();
+    var pr = weekPay(wk), pay = pr.pay;
+    if (pr.override) {
+      return { pay: pay, override: pr.override, gross: pay.gross, net: pay.net,
+               baseSoFar: pay.baseGross, daysSoFar: null, daysTotal: null };
+    }
+    var daysSoFar = 0, daysTotal = 0;
+    for (var j = 0; j < 7; j++) {
+      var kk = E.addDaysKey(wk.weekStart, j);
+      if (E.dayKind(kk, st) !== 'scheduled') continue;
+      daysTotal++;
+      if (E.daysBetweenKeys(kk, tk) < 0) continue;          // still to come
+      var logged = wk.days[kk];
+      var mk = DB.dayMarkers[kk];
+      var worked = !!(logged && (logged.regularHours || logged.ot15 || logged.ot2));
+      var paidOff = !!mk && E.markerPaidHours(mk, st) > 0;
+      if (worked || paidOff) daysSoFar++;
+    }
+    var baseSoFar = daysTotal ? pay.baseGross * (daysSoFar / daysTotal) : 0;
+    var gross = baseSoFar + pay.ot15Pay + pay.ot2Pay;
+    return { pay: pay, override: null, gross: gross,
+             net: gross * (st.takeHomePct || 0) / 100,
+             baseSoFar: baseSoFar, daysSoFar: daysSoFar, daysTotal: daysTotal };
+  }
+
+  /* The Projected tab is a reference, not a running tally. It answers "what
+     should this week pay" from the same assumptions PayCalc uses, and does not
+     move as punches are logged -- Earned beside it is what actually happened.
+     Mirrors buildPaychecks' projected branch so the two can never disagree.
+     A manual entry still wins, because it is what PayCalc would pay too. */
+  function projectedWeekPay(ws) {
+    var st = settingsForWeek(ws);
+    var ov = DB.weekOverrides[ws];
+    if (E.isOverride(ov)) {
+      return { pay: E.payFromOverride(ov, st, ws, DB.dayMarkers), override: ov };
+    }
+    var wb = E.weekBase(ws, st, DB.dayMarkers);
+    var fullWeek = E.scheduledWeeklyHours(st.schedule);
+    var offHours = E.hoursOffInWeek(ws, st, DB.dayMarkers);
+    var working = Math.max(0, fullWeek - offHours);
+    var share = fullWeek > 0 ? working / fullWeek : 0;
+    var p = DB.prefs;
+    return {
+      pay: E.payFromHours(
+        { regularHours: working,
+          ot15: (p.assumedOt15 || 0) * share,
+          ot2: (p.assumedOt2 || 0) * share },
+        st, { baseGross: wb.baseGross, unpaidDays: wb.unpaidDays,
+              unpaidHours: assumedOffHours() }),
+      override: null
+    };
   }
 
   /* 2. Assumed time off for projected weeks. A day is one shift, so the day
@@ -2240,7 +2438,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     var wk = weekFor(E.weekStartKey(tk, 1), true) || emptyWeek(E.weekStartKey(tk, 1));
     var d = wk.days[tk] || { regularHours: 0, ot15: 0, ot2: 0, otHours: 0 };
     fillStats($('todayStats'), [
-      { k: 'Shift', v: hrs(d.regularHours) },
+      { k: 'Shift', v: hrs(d.regularHours), cls: d.regularHours ? 'cbase' : '' },
       { k: '1.5x', v: hrs(d.ot15), cls: d.ot15 ? 'c15' : '' },
       { k: '2x', v: hrs(d.ot2), cls: d.ot2 ? 'c2' : '' }
     ]);
@@ -2252,13 +2450,15 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     // This week
     $('weekRangeLabel').textContent = fmtKey(wk.weekStart) + ' - ' + fmtKey(wk.weekEnd);
     fillStats($('homeWeekStats'), [
-      { k: 'Shift', v: hnum(wk.regularHours) + ' h' },
+      { k: 'Shift', v: hnum(wk.regularHours) + ' h', cls: wk.regularHours ? 'cbase' : '' },
       { k: '1.5x', v: hnum(wk.ot15) + ' h', cls: wk.ot15 ? 'c15' : '' },
       { k: '2x', v: hnum(wk.ot2) + ' h', cls: wk.ot2 ? 'c2' : '' }
     ]);
-    var wp = weekPay(wk);
-    $('nextPayLabel').textContent = '(' + fmtKey(wk.payday, true) + (wp.override ? ', override' : '') + ')';
-    $('homeNextNet').textContent = money(wp.pay.net);
+    // Only what has been clocked or entered for that week -- not a projection.
+    var earned = earnedForWeek(wk);
+    $('nextPayLabel').textContent = '(' + fmtKey(wk.payday, true) +
+      (earned.override ? ', manual entry' : '') + ')';
+    $('homeNextNet').textContent = money(earned.net);
   }
 
   function renderLive() {
@@ -2337,7 +2537,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
       '<div class="sub">paid ' + esc(fmtKey(wk.payday, true)) + '</div>';
 
     fillStats($('weekHourStats'), [
-      { k: 'Shift', v: hnum(wk.regularHours) + ' h' },
+      { k: 'Shift', v: hnum(wk.regularHours) + ' h', cls: wk.regularHours ? 'cbase' : '' },
       { k: '1.5x', v: hnum(wk.ot15) + ' h', cls: wk.ot15 ? 'c15' : '' },
       { k: '2x', v: hnum(wk.ot2) + ' h', cls: wk.ot2 ? 'c2' : '' }
     ]);
@@ -2361,52 +2561,61 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
       dl.appendChild(r);
     }
 
-    var pr = weekPay(wk), pay = pr.pay;
-    // A finished week is a fact; the current and future ones are projections,
-    // because the base below is the whole week's even if it is only Tuesday.
-    var weekOver = E.daysBetweenKeys(wk.weekEnd, tk) > 0;
-    $('weekPayTitle').textContent = weekOver ? 'What this week paid' : 'Projected pay for this week';
+    var pr = weekPay(wk), pay = pr.pay;              // what has happened
+    var prj = projectedWeekPay(wk.weekStart);        // what is expected
+    var ppay = prj.pay;
+    $('weekPayTitle').textContent = 'What this week should pay';
 
     var wpNode = $('weekPay'); wpNode.innerHTML = '';
-    if (!weekOver && !pr.override) {
-      wpNode.appendChild(el('div', 'sub', 'Projected: the full week’s base, which assumes you ' +
-        'work your remaining shifts, plus only the overtime logged so far. ' +
-        'The Earned tab shows what is banked so far.'));
+    if (!prj.override) {
+      wpNode.appendChild(el('div', 'sub', 'The full week’s base plus the overtime you assume ' +
+        'on PayCalc. This is the same figure PayCalc projects, and it does not move as you ' +
+        'clock in — the Earned tab is what has actually happened.'));
     }
-    if (pr.override) {
-      wpNode.appendChild(el('div', 'warnbox', 'This week is set by a manual override' +
-        (pr.override.note ? ' (' + esc(pr.override.note) + ')' : '') +
-        ', so the hours above are not what it pays. Delete the override under Paychecks to use the punches.'));
+    if (prj.override) {
+      wpNode.appendChild(el('div', 'warnbox', 'This week is set by a manual entry' +
+        (prj.override.note ? ' (' + esc(prj.override.note) + ')' : '') +
+        ', so the hours above are not what it pays. Delete it under Manual Entry for Week, ' +
+        'on the Punches tab, to use the punches instead.'));
     }
     var lessBits = [];
-    if (pay.unpaidDays) lessBits.push(pay.unpaidDays + ' unpaid day' + (pay.unpaidDays > 1 ? 's' : ''));
-    if (pay.unpaidHours) lessBits.push(hrs(pay.unpaidHours) + ' unpaid');
+    if (ppay.unpaidDays) lessBits.push(ppay.unpaidDays + ' unpaid day' + (ppay.unpaidDays > 1 ? 's' : ''));
+    if (ppay.unpaidHours) lessBits.push(hrs(ppay.unpaidHours) + ' unpaid');
     row(wpNode, 'Base' + (lessBits.length ? ' (less ' + lessBits.join(' and ') + ')' : ''),
-        money(pay.baseGross));
-    row(wpNode, hnum(pay.ot15Hours) + ' h x ' + rate(pay.ot15Rate) + ' (1.5x)', money(pay.ot15Pay), 'c15');
-    row(wpNode, hnum(pay.ot2Hours) + ' h x ' + rate(pay.ot2Rate) + ' (2x)', money(pay.ot2Pay), 'c2');
-    row(wpNode, 'Gross', money(pay.gross), 'total');
-    row(wpNode, 'Net at ' + hnum(st.takeHomePct) + '% take-home', money(pay.net), 'total pos');
+        money(ppay.baseGross));
+    row(wpNode, hnum(ppay.ot15Hours) + ' h x ' + rate(ppay.ot15Rate) + ' (1.5x)', money(ppay.ot15Pay), 'c15');
+    row(wpNode, hnum(ppay.ot2Hours) + ' h x ' + rate(ppay.ot2Rate) + ' (2x)', money(ppay.ot2Pay), 'c2');
+    row(wpNode, 'Gross', money(ppay.gross), 'total');
+    row(wpNode, 'Net at ' + hnum(st.takeHomePct) + '% take-home', money(ppay.net), 'total pos');
 
     // Earned so far: the base accrues a day at a time, OT is already banked.
     var td = $('weekToDate'); td.innerHTML = '';
-    var baseDaysSoFar = 0, baseDaysTotal = 0;
-    for (var j = 0; j < 7; j++) {
-      var kk = E.addDaysKey(wk.weekStart, j);
-      if (E.dayKind(kk, st) !== 'scheduled') continue;
-      if (DB.dayMarkers[kk] === 'unpaid') continue;
-      baseDaysTotal++;
-      if (E.daysBetweenKeys(kk, tk) >= 0) baseDaysSoFar++;
+    /* A scheduled day only accrues base once it has actually happened: hours
+       clocked on it, or a marker that pays it (PTO, a paid holiday, paid
+       "other"). Vacation does not -- it is paid in advance, not on this check.
+       The old version counted every scheduled day the calendar had passed, so
+       a week with one shift logged on Monday still read "4 of 5 days" by
+       Thursday. (It also tested `=== 'unpaid'` against a marker object, which
+       is never true, so that guard did nothing.) */
+    var earned = earnedForWeek(wk);
+    var eBits = [];
+    if (pay.unpaidDays) eBits.push(pay.unpaidDays + ' unpaid day' + (pay.unpaidDays > 1 ? 's' : ''));
+    if (pay.unpaidHours) eBits.push(hrs(pay.unpaidHours) + ' unpaid');
+    var baseLabel = earned.override
+      ? 'Base' + (eBits.length ? ' (less ' + eBits.join(' and ') + ')' : '')
+      : 'Base accrued (' + earned.daysSoFar + ' of ' + earned.daysTotal + ' days)';
+    row(td, baseLabel, money(earned.baseSoFar));
+    // Broken out the same way the Projected tab does it, so the two compare line for line.
+    row(td, hnum(pay.ot15Hours) + ' h x ' + rate(pay.ot15Rate) + ' (1.5x)', money(pay.ot15Pay), 'c15');
+    row(td, hnum(pay.ot2Hours) + ' h x ' + rate(pay.ot2Rate) + ' (2x)', money(pay.ot2Pay), 'c2');
+    row(td, 'Gross to date', money(earned.gross), 'total');
+    row(td, 'Net to date', money(earned.net), 'total pos');
+    if (earned.override) {
+      td.appendChild(el('div', 'warnbox', 'This week is set by a manual entry' +
+        (earned.override.note ? ' (' + esc(earned.override.note) + ')' : '') +
+        ', so these are its figures, not the punches.'));
     }
-    var baseSoFar = baseDaysTotal ? pay.baseGross * (baseDaysSoFar / baseDaysTotal) : 0;
-    var otSoFar = pay.ot15Pay + pay.ot2Pay;
-    var grossSoFar = baseSoFar + otSoFar;
-    row(td, 'Base accrued (' + baseDaysSoFar + ' of ' + baseDaysTotal + ' days)', money(baseSoFar));
-    row(td, 'Overtime banked', money(otSoFar));
-    row(td, 'Gross to date', money(grossSoFar), 'total');
-    row(td, 'Net to date', money(grossSoFar * (st.takeHomePct || 0) / 100), 'total pos');
-    td.appendChild(el('div', 'sub', 'The full week pays the flat base of ' +
-      esc(money(pay.baseGross)) + ' regardless of hours; this just spreads it across the week.'));
+
   }
 
   $('weekPrev').addEventListener('click', function () { weekCursor = E.addDaysKey(weekCursor, -7); renderWeek(); });
@@ -2689,7 +2898,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
   function oneTimeDialog(id) {
     var e = id ? (DB.oneTimePay || []).filter(function (x) { return x.id === id; })[0] : null;
     openForm(e ? 'Edit one-time pay' : 'Add one-time pay', [
-      { key: 'date', label: 'Date', type: 'date', value: e ? e.date : todayKey() },
+      { key: 'date', label: 'Date', type: 'date', value: e ? e.date : '' },
       { key: 'gross', label: 'Gross amount', type: 'number', step: 0.01, min: 0,
         value: e ? e.gross : '' },
       { key: 'taxMode', label: 'Tax withheld as', type: 'select',
@@ -2719,7 +2928,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
   function overrideDialog(ws) {
     var ov = ws ? DB.weekOverrides[ws] : {};
     openForm(ws ? 'Manual entry for week of ' + fmtKeyYear(ws) : 'Add a manual entry', [
-      { key: 'week', label: 'Any date in the week (snaps to Monday)', type: 'date', value: ws || todayKey() },
+      { key: 'week', label: 'Any date in the week (snaps to Monday)', type: 'date', value: ws || '' },
       { key: 'baseOnly', label: 'Base only (no overtime)', type: 'checkbox', value: !!ov.baseOnly },
       { key: 'ot15', label: 'Overtime hours at 1.5x', type: 'number', step: 0.25, min: 0, value: ov.ot15 == null ? '' : ov.ot15 },
       { key: 'ot2', label: 'Overtime hours at 2x', type: 'number', step: 0.25, min: 0, value: ov.ot2 == null ? '' : ov.ot2 },
@@ -2732,7 +2941,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
         esc(money(E.baseHourly(S()))) + ' an hour.' },
       { key: 'note', label: 'Note', type: 'text', value: ov.note || '' }
     ], function (v) {
-      if (!v.week) return;
+      if (!v.week) { toast('Pick a date first'); return; }
       var newWs = E.weekStartKey(v.week, 1);
       if (ws && ws !== newWs) delete DB.weekOverrides[ws];
       DB.weekOverrides[newWs] = {
@@ -3050,36 +3259,71 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
       : fmtClock(s.start);
   }
 
+  /* One date and two times, rather than two datetime-locals. A datetime-local
+     makes you walk a scrolling picker twice for what is almost always the same
+     day, and on a desktop it is worse than typing. A time field takes typed
+     digits, and "Use my shift times" fills both from the schedule.
+
+     An end time at or before the start means the shift ran past midnight, so
+     the clock-out lands on the next day. (A punch longer than 24 hours can no
+     longer be entered by hand; it never was a real one.) */
   function punchDialog(id) {
     var s = id ? DB.sessions.filter(function (x) { return x.id === id; })[0] : null;
-    var now = Date.now();
-    var defStart = s ? s.start : inputToMs(todayKey() + 'T' + sched().shiftStart);
+    var sp = s ? E.localParts(s.start, TZ()) : null;
+    var ep = s && s.end != null ? E.localParts(s.end, TZ()) : null;
+    var hhmm = function (p) { return E.pad(p.h) + ':' + E.pad(p.mi); };
     openForm(s ? 'Edit punch' : 'Add a punch', [
-      { key: 'start', label: 'Clocked in', type: 'datetime-local', value: msToInput(defStart) },
-      { key: 'end', label: 'Clocked out (leave blank to keep it running)', type: 'datetime-local',
-        value: s && s.end != null ? msToInput(s.end) : (s ? '' : msToInput(inputToMs(todayKey() + 'T' + sched().shiftEnd))) },
+      { key: 'day', label: 'Date', type: 'date',
+        value: sp ? sp.y + '-' + E.pad(sp.m) + '-' + E.pad(sp.d) : '' },
+      { key: 'inTime', label: 'Clocked in', type: 'time12', value: sp ? hhmm(sp) : '' },
+      { key: 'outTime', label: 'Clocked out (leave blank to keep it running)', type: 'time12',
+        value: ep ? hhmm(ep) : '' },
       { key: 'holiday', label: 'Holiday pay (every hour at 2x)', type: 'checkbox',
         value: s ? !!s.holiday : false },
-      { key: 'html', type: 'html', html: 'Times are ' + esc(TZ()) + ' wall clock, whatever this device is set to.' }
+      { key: 'html', type: 'html', cls: 'btnrow',
+        html: '<button type="button" class="btn sm" id="fillShift">Use my shift times</button>' },
+      { key: 'html2', type: 'html', html: 'Times are ' + esc(TZ()) + ' wall clock, whatever this device is set to.' }
     ], function (v) {
-      var st = inputToMs(v.start);
+      if (!v.day) { toast('Pick a date first'); return; }
+      if (!v.inTime) { toast('A clock-in time is required'); return; }
+      var st = inputToMs(v.day + 'T' + v.inTime);
       if (st == null) { toast('A clock-in time is required'); return; }
-      var en = v.end ? inputToMs(v.end) : null;
+      var en = null;
+      if (v.outTime) {
+        var endDay = v.outTime <= v.inTime ? E.addDaysKey(v.day, 1) : v.day;
+        en = inputToMs(endDay + 'T' + v.outTime);
+      }
       if (en != null && en <= st) { toast('Clock-out must be after clock-in'); return; }
       if (en == null && activeSession() && (!s || activeSession().id !== s.id)) {
         toast('Already clocked in - close that punch first'); return;
       }
       if (s) { s.start = st; s.end = en; s.holiday = !!v.holiday; s.manual = true; }
-      else DB.sessions.push({ id: 'p' + now, start: st, end: en, holiday: !!v.holiday, manual: true });
+      else DB.sessions.push({ id: 'p' + Date.now(), start: st, end: en, holiday: !!v.holiday, manual: true });
       save(); renderAll(); toast('Punch saved');
     });
+    var fill = $('fillShift');
+    if (fill) {
+      fill.addEventListener('click', function () {
+        var sc = sched();
+        [['f_inTime', sc.shiftStart], ['f_outTime', sc.shiftEnd]].forEach(function (pair) {
+          var i = $(pair[0]), t = to12(pair[1]);
+          if (!i) return;
+          i.value = t.text;
+          i.dataset.ap = t.ap;
+          var seg = i.parentNode.querySelector('.ampm');
+          if (seg) Array.prototype.forEach.call(seg.children, function (b) {
+            if (b.textContent === t.ap) b.classList.add('on'); else b.classList.remove('on');
+          });
+        });
+      });
+    }
   }
   $('addPunch').addEventListener('click', function () { punchDialog(null); });
 
   function markerDialog(k) {
     var cur = E.normaliseMarker(k ? DB.dayMarkers[k] : null) || { type: 'vacation' };
     openForm('PTO / Vacation / Holiday', [
-      { key: 'day', label: 'Date', type: 'date', value: k || todayKey() },
+      { key: 'day', label: 'Date', type: 'date', value: k || '' },
       { key: 'kind', label: 'Type', type: 'select', value: cur.type,
         options: E.DAY_OFF_TYPES.map(function (t) {
           return { value: t.id, label: t.label + ' \u2014 ' + t.note };
@@ -3098,7 +3342,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
         esc(money(E.dailyBase(S()))) + '. To claim 2x for a holiday you actually worked, ' +
         'use Holiday Clock In on the Clock screen \u2014 marking the day does not do it.' }
     ], function (v) {
-      if (!v.day) return;
+      if (!v.day) { toast('Pick a date first'); return; }
       if (k && k !== v.day) delete DB.dayMarkers[k];
       if (!v.kind) { delete DB.dayMarkers[v.day]; }
       else if (v.kind === 'other') {
