@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+<title>PayCalc user guide</title>
+<!-- GitHub Pages serves static files only, so /guide is a folder whose index
+     sends you on to the PDF. The meta refresh covers the case where script is
+     blocked; the link covers the case where both are. The path is relative so
+     this keeps working if the site ever moves to a subfolder. -->
+<meta http-equiv="refresh" content="0; url=../PayCalc-User-Guide.pdf">
+<link rel="canonical" href="../PayCalc-User-Guide.pdf">
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    background: #f4f5f7; color: #15181d;
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+    text-align: center; padding: 24px;
+  }
+  a { color: #1f6feb; font-weight: 600; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #0f1115; color: #e8eaee; }
+    a { color: #4f8cf7; }
+  }
+</style>
+</head>
+<body>
+  <p>Opening the PayCalc user guide…<br>
+    <a href="../PayCalc-User-Guide.pdf">Tap here if it does not open.</a></p>
+  <script>location.replace('../PayCalc-User-Guide.pdf');</script>
+</body>
+</html>
