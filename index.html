@@ -396,7 +396,9 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
   border-bottom: 4px solid var(--line-strong);
 }
 .weekspan .field { flex: 0 1 46%; min-width: 0; margin-bottom: 0; }
-.weekspan .field:last-child > span { text-align: right; }
+/* Label centred over its own field, not pinned to the card's edges: there is
+   plenty of room between the two, and each label belongs to its box. */
+.weekspan .field > span { text-align: center; }
 .weekspan input { text-align: center; }
 
 /* The paycheck itself: centred in front of a dimmed, blurred page, so nothing
@@ -521,8 +523,13 @@ dialog h2 { margin-bottom: 12px; }
   </div>
 
   <div class="card">
-    <h3>PTO / Vacation / Holiday</h3>
-    <div id="markerList"></div>
+    <button class="cardtoggle" type="button" data-panel="markerPanel" aria-expanded="false">
+      <span>PTO / Vacation / Holiday<span class="count" id="markerCount"></span></span>
+      <span class="chev" aria-hidden="true">&#9662;</span>
+    </button>
+    <div id="markerPanel" hidden>
+      <div id="markerList"></div>
+    </div>
   </div>
 
   </div>
@@ -608,7 +615,7 @@ dialog h2 { margin-bottom: 12px; }
       override use that. Everything else uses the assumed OT above.</div>
     </div>
   </div>
-  <div class="card">
+  <div class="card" id="oneTimeCard">
     <h3>One-time pay</h3>
     <div id="oneTimeList"></div>
     <div class="btnrow" style="margin-top:12px"><button class="btn primary" id="addOneTime">+ Add one-time pay</button></div>
@@ -2507,6 +2514,8 @@ dialog h2 { margin-bottom: 12px; }
     payTab = which === 'projection' ? 'projection' : 'checks';
     $('payChecksPanel').hidden = payTab !== 'checks';
     $('payProjPanel').hidden = payTab !== 'projection';
+    // One-time pay is part of what a paycheck adds up to, not of the assumptions.
+    $('oneTimeCard').hidden = payTab !== 'checks';
     Array.prototype.forEach.call($('payTabs').children, function (b) {
       if (b.dataset.paytab === payTab) b.setAttribute('aria-current', 'page');
       else b.removeAttribute('aria-current');
@@ -2982,6 +2991,8 @@ dialog h2 { margin-bottom: 12px; }
 
     var ml = $('markerList'); ml.innerHTML = '';
     var mks = Object.keys(DB.dayMarkers).filter(function (k) { return DB.dayMarkers[k]; }).sort().reverse();
+    var mc = $('markerCount');
+    if (mc) mc.textContent = mks.length ? mks.length + (mks.length === 1 ? ' day' : ' days') : 'none';
     if (!mks.length) ml.appendChild(el('div', 'sub', 'No PTO, holiday or unpaid days marked.'));
     mks.forEach(function (k) {
       var it = el('div', 'item');
@@ -3033,7 +3044,7 @@ dialog h2 { margin-bottom: 12px; }
   $('addPunch').addEventListener('click', function () { punchDialog(null); });
 
   function markerDialog(k) {
-    var cur = E.normaliseMarker(k ? DB.dayMarkers[k] : null) || { type: 'pto' };
+    var cur = E.normaliseMarker(k ? DB.dayMarkers[k] : null) || { type: 'vacation' };
     openForm('PTO / Vacation / Holiday', [
       { key: 'day', label: 'Date', type: 'date', value: k || todayKey() },
       { key: 'kind', label: 'Type', type: 'select', value: cur.type,
