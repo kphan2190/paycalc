@@ -379,6 +379,21 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
 }
 .savingsrow .num { font-size: 1.2rem; }
 
+/* How many paychecks to show. Sits above the list and is closed off by the same
+   4px rule that closes it at the bottom, so the two read as the list's ends. */
+.weekspan {
+  margin: 0 -14px 14px;
+  padding: 0 14px 14px;
+  border-bottom: 4px solid var(--line-strong);
+}
+.spanrow { display: flex; align-items: flex-end; gap: 8px; }
+.spanrow + .spanrow { margin-top: 10px; }
+.spanrow .field { flex: 1; min-width: 0; margin-bottom: 0; }
+.spanrow .step {
+  flex: none; min-width: 52px; padding: 0;
+  font-size: 1.35rem; line-height: 1; font-weight: 700;
+}
+
 /* The paycheck itself: centred in front of a dimmed, blurred page, so nothing
    has to be scrolled to in order to read it. */
 .sheet {
@@ -545,6 +560,20 @@ dialog h2 { margin-bottom: 12px; }
     </div>
 
     <div id="payChecksPanel">
+      <div class="weekspan">
+        <div class="spanrow">
+          <button class="btn step" type="button" data-span="weeksBack" data-delta="-1" aria-label="One week fewer behind">&minus;</button>
+          <label class="field"><span>Number of past weeks</span>
+            <input type="number" id="weeksBack" step="1" min="0" max="52" inputmode="numeric"></label>
+          <button class="btn step" type="button" data-span="weeksBack" data-delta="1" aria-label="One week more behind">+</button>
+        </div>
+        <div class="spanrow">
+          <button class="btn step" type="button" data-span="weeksAhead" data-delta="-1" aria-label="One week fewer ahead">&minus;</button>
+          <label class="field"><span>Number of future weeks</span>
+            <input type="number" id="weeksAhead" step="1" min="0" max="52" inputmode="numeric"></label>
+          <button class="btn step" type="button" data-span="weeksAhead" data-delta="1" aria-label="One week more ahead">+</button>
+        </div>
+      </div>
       <div id="checkList"></div>
       <div class="rowline savingsrow"><span>Potential savings <span class="sub">across every paycheck shown</span></span><span class="num savings" id="runningTotal"></span></div>
     </div>
@@ -555,12 +584,6 @@ dialog h2 { margin-bottom: 12px; }
         <input type="number" id="assumedOt" step="0.25" min="0"></label>
       <label class="field"><span>Assumed OT hrs/week at 2x</span>
         <input type="number" id="assumedOt2" step="0.25" min="0"></label>
-    </div>
-    <div class="grid2">
-      <label class="field"><span>Weeks back to show</span>
-        <input type="number" id="weeksBack" step="1" min="0" max="52"></label>
-      <label class="field"><span>Weeks ahead to show</span>
-        <input type="number" id="weeksAhead" step="1" min="1" max="52"></label>
     </div>
     <h3 style="margin-top:14px">Assumed time off</h3>
     <div class="grid3">
@@ -1699,7 +1722,7 @@ dialog h2 { margin-bottom: 12px; }
   /* ---------------- state ---------------- */
 
   var DEFAULT_PREFS = {
-    theme: 'system', assumedOt15: 0, assumedOt2: 0, weeksBack: 0, weeksAhead: 5,
+    theme: 'system', assumedOt15: 0, assumedOt2: 0, weeksBack: 0, weeksAhead: 4,
     warnShare: 40, excludeBillIds: [], setupDone: false, pendingHoliday: false,
     offDays: 0, offHours: 0, offMinutes: 0, offPaid: false,
     holidayNudgeDismissed: ''
@@ -1717,7 +1740,7 @@ dialog h2 { margin-bottom: 12px; }
     return keys.length ? keys[0] : E.dateKey(Date.now(), tz);
   }
 
-  var DB_VERSION = 5;   // 2: Sunday double time. 3: schedules, no seeded data.
+  var DB_VERSION = 6;   // 2: Sunday double time. 3: schedules, no seeded data.
                         // 4: take-home %, payday setting, settings history.
                         // 5: paycheck window defaults 0 back / 5 ahead.
 
@@ -1790,6 +1813,10 @@ dialog h2 { margin-bottom: 12px; }
       // Only move someone who never changed these off the old defaults.
       if (d.prefs.weeksBack === 4) d.prefs.weeksBack = 0;
       if (d.prefs.weeksAhead === 10) d.prefs.weeksAhead = 5;
+    }
+    if (!(d.v >= 6) && d.prefs) {
+      // Same again: 5 ahead was the v5 default, so only that value moves.
+      if (d.prefs.weeksAhead === 5) d.prefs.weeksAhead = 4;
     }
     d.settings = s;
     if (!Array.isArray(d.settingsHistory)) d.settingsHistory = [];
@@ -2083,7 +2110,7 @@ dialog h2 { margin-bottom: 12px; }
     var p = DB.prefs;
     return E.buildPaychecks({
       firstPayday: E.paydayForWeekStart(E.addDaysKey(thisWs, -7 * (p.weeksBack || 0)), S()),
-      lastPayday: E.paydayForWeekStart(E.addDaysKey(thisWs, 7 * (p.weeksAhead || 1)), S()),
+      lastPayday: E.paydayForWeekStart(E.addDaysKey(thisWs, 7 * (p.weeksAhead || 0)), S()),
       sessions: closedSessions(includeLive),
       dayMarkers: DB.dayMarkers, bills: DB.bills, settings: TL(),
       oneTimePay: DB.oneTimePay,
@@ -2667,6 +2694,18 @@ dialog h2 { margin-bottom: 12px; }
   $('offPaid').addEventListener('change', function () {
     DB.prefs.offPaid = this.value === '1';
     save(); renderChecks();
+  });
+
+  /* The - and + beside each week field. Both floor at 0, so the narrowest
+     window is this week's paycheck on its own. */
+  Array.prototype.forEach.call(document.querySelectorAll('.spanrow .step'), function (b) {
+    b.addEventListener('click', function () {
+      var key = b.dataset.span;
+      var next = Math.max(0, Math.min(52, (+DB.prefs[key] || 0) + (+b.dataset.delta)));
+      if (next === (+DB.prefs[key] || 0)) return;
+      DB.prefs[key] = next;
+      save(); renderChecks();
+    });
   });
 
   ['assumedOt', 'assumedOt2', 'weeksAhead', 'weeksBack'].forEach(function (id) {
