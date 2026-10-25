@@ -24,24 +24,23 @@
   /* Light mode money colours. The old pair sat close to black -- legible but
      dull. These are more saturated so a figure reads as green or red at a
      glance, and still clear 4.5:1 on white. */
-  --go: #03C04A;
+  --go: #008000;
   --stop: #FF0000;
   --warn: #8a5300;
   --warn-bg: #fff4d6;
   --pay-base: inherit;
   --pay-1-5x: #0d8f4a;
-  --pay-2x: #03C04A;
+  --pay-2x: #008000;
   --ot15: var(--pay-1-5x);
   --ot2: var(--pay-2x);
-  /* The page behind the cards. Light mode sits its white cards on a dark
-     gray-to-navy wash, so the screen reads dimmer and the cards lift off it.
-     Kept apart from --bg, which still fills inputs and day boxes inside the
-     cards and must stay light. */
-  --page: linear-gradient(168deg, #262a33 0%, #1d2331 48%, #141d3a 100%);
-  --on-page: #e9ebf0;
-  --on-page-muted: #a3abbb;
-  --page-line: #3c4456;
-  --page-edge: #20252f;
+  /* The savings strip. In light mode a pale fill cannot win against a column of
+     green paycheck figures above it, so the strip goes dark and carries the
+     total in reverse -- one band of contrast the rows cannot compete with. */
+  --strip-bg: #1d2331;
+  --strip-text: #e9ebf0;
+  --strip-muted: #a3abbb;
+  --strip-pos: #22e07a;
+  --strip-neg: #ff6b6b;
   --radius: 14px;
   --tap: 48px;
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -68,12 +67,12 @@
     --pay-2x: #22e07a;
     --ot15: var(--pay-1-5x);
     --ot2: var(--pay-2x);
-    /* Dark mode already is the wash: the page keeps its flat background. */
-    --page: var(--bg);
-    --on-page: var(--text);
-    --on-page-muted: var(--muted);
-    --page-line: var(--line);
-    --page-edge: var(--bg);
+    /* Dark mode: the strip is already distinct against the card. */
+    --strip-bg: var(--surface-2);
+    --strip-text: var(--text);
+    --strip-muted: var(--muted);
+    --strip-pos: var(--pay-2x);
+    --strip-neg: var(--stop);
   }
 }
 :root[data-theme="dark"] {
@@ -95,12 +94,12 @@
   --pay-2x: #22e07a;
   --ot15: var(--pay-1-5x);
   --ot2: var(--pay-2x);
-  /* Dark mode already is the wash: the page keeps its flat background. */
-  --page: var(--bg);
-  --on-page: var(--text);
-  --on-page-muted: var(--muted);
-  --page-line: var(--line);
-  --page-edge: var(--bg);
+  /* Dark mode: the strip is already distinct against the card. */
+  --strip-bg: var(--surface-2);
+  --strip-text: var(--text);
+  --strip-muted: var(--muted);
+  --strip-pos: var(--pay-2x);
+  --strip-neg: var(--stop);
 }
 :root[data-theme="light"] {
   --bg: #f4f5f7;
@@ -115,24 +114,23 @@
   /* Light mode money colours. The old pair sat close to black -- legible but
      dull. These are more saturated so a figure reads as green or red at a
      glance, and still clear 4.5:1 on white. */
-  --go: #03C04A;
+  --go: #008000;
   --stop: #FF0000;
   --warn: #8a5300;
   --warn-bg: #fff4d6;
   --pay-base: inherit;
   --pay-1-5x: #0d8f4a;
-  --pay-2x: #03C04A;
+  --pay-2x: #008000;
   --ot15: var(--pay-1-5x);
   --ot2: var(--pay-2x);
-  /* The page behind the cards. Light mode sits its white cards on a dark
-     gray-to-navy wash, so the screen reads dimmer and the cards lift off it.
-     Kept apart from --bg, which still fills inputs and day boxes inside the
-     cards and must stay light. */
-  --page: linear-gradient(168deg, #262a33 0%, #1d2331 48%, #141d3a 100%);
-  --on-page: #e9ebf0;
-  --on-page-muted: #a3abbb;
-  --page-line: #3c4456;
-  --page-edge: #20252f;
+  /* The savings strip. In light mode a pale fill cannot win against a column of
+     green paycheck figures above it, so the strip goes dark and carries the
+     total in reverse -- one band of contrast the rows cannot compete with. */
+  --strip-bg: #1d2331;
+  --strip-text: #e9ebf0;
+  --strip-muted: #a3abbb;
+  --strip-pos: #22e07a;
+  --strip-neg: #ff6b6b;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -153,18 +151,6 @@ h3 { font-size: 0.92rem; color: var(--muted); font-weight: 600; text-transform: 
 a { color: var(--accent); }
 
 /* ---------- chrome ---------- */
-/* The backdrop is a fixed layer rather than a background on <body> with
-   background-attachment: fixed, which iOS Safari handles badly: it would
-   re-scale the gradient as the page scrolls. Sitting behind everything at
-   z-index -1, it stays put and costs no layout. */
-body::before {
-  content: ''; position: fixed; inset: 0; z-index: -1;
-  background: var(--page);
-}
-/* What a rubber-band overscroll reveals past the fixed layer. Without this the
-   page flashes the light --bg at the top and bottom of a scroll on iOS. */
-html { background: var(--page-edge); }
-
 header.app {
   position: sticky; top: 0; z-index: 20;
   display: flex; align-items: center; gap: 10px;
@@ -370,15 +356,6 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
 .daybox input { width: 18px; height: 18px; margin: 0; }
 
 .navrow { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-.navrow .label { color: var(--on-page); }
-.navrow .label .sub { color: var(--on-page-muted); }
-
-/* The clock page's tabs are the one tab row that sits on the page itself, so
-   they take the backdrop's colours rather than a card's. The selected tab still
-   fills with --surface and so keeps its own dark text. */
-#clockTabs { border-bottom-color: var(--page-line); }
-#clockTabs .tabbtn { color: var(--on-page-muted); border-bottom-color: var(--page-line); }
-#clockTabs .tabbtn[aria-current="page"] { color: var(--text); border-bottom-color: var(--surface); }
 .navrow .btn { min-width: 52px; }
 .navrow .label { flex: 1; text-align: center; font-weight: 650; }
 
@@ -421,12 +398,16 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
   margin: 14px -14px -14px;
   padding: 15px 14px calc(15px + env(safe-area-inset-bottom, 0px));
   border-top: 2px solid var(--accent);
-  background: var(--surface-2);
+  background: var(--strip-bg);
+  color: var(--strip-text);
   border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px);
   font-weight: 700;
   align-items: baseline;
 }
 .savingsrow .num { font-size: 1.2rem; }
+.savingsrow .sub { color: var(--strip-muted); }
+.savingsrow .num.savings { color: var(--strip-pos); }
+.savingsrow .num.neg { color: var(--strip-neg); }
 
 /* The paycheck itself: centred in front of a dimmed, blurred page, so nothing
    has to be scrolled to in order to read it. */
