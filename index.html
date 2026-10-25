@@ -356,6 +356,21 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
 .checkrow:first-of-type { border-top: 0; }
 .checkrow:active { background: var(--surface-2); }
 
+/* The running total is not one more paycheck. It sits on its own strip across
+   the foot of the card, so the eye stops at it instead of reading down into it:
+   its own fill, a heavier rule than the ones dividing the paychecks, and the
+   figure a size up. */
+.savingsrow {
+  margin: 14px -14px -14px;
+  padding: 15px 14px calc(15px + env(safe-area-inset-bottom, 0px));
+  border-top: 2px solid var(--accent);
+  background: var(--surface-2);
+  border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px);
+  font-weight: 700;
+  align-items: baseline;
+}
+.savingsrow .num { font-size: 1.2rem; }
+
 /* The paycheck itself: centred in front of a dimmed, blurred page, so nothing
    has to be scrolled to in order to read it. */
 .sheet {
@@ -523,7 +538,7 @@ dialog h2 { margin-bottom: 12px; }
 
     <div id="payChecksPanel">
       <div id="checkList"></div>
-      <div class="rowline total"><span>Potential savings <span class="sub">across every paycheck shown</span></span><span class="num savings" id="runningTotal"></span></div>
+      <div class="rowline savingsrow"><span>Potential savings <span class="sub">across every paycheck shown</span></span><span class="num savings" id="runningTotal"></span></div>
     </div>
 
     <div id="payProjPanel" hidden>
