@@ -3205,6 +3205,12 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
      Nothing is deleted -- hidden punches still count in every total and are
      still in the JSON export. Not remembered: every visit starts folded. */
   var showOldPunches = false, showOldEntries = false;
+  /* How many punch rows are drawn at once. A window, not a wall: the button
+     above the list opens it another pageful at a time, so every punch stays
+     reachable and editable however many there are. Ten at a time: a punch list
+     is scrolled past, not read. Back to one page on each visit. */
+  var PUNCH_PAGE = 10;
+  var punchDrawCap = PUNCH_PAGE;
 
   function weekIsSettled(weekStartKeyValue) {
     var pd = E.paydayForWeekStart(weekStartKeyValue, settingsForWeek(weekStartKeyValue));
@@ -3243,7 +3249,24 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     });
     if (!all.length) { pl.appendChild(el('div', 'empty', 'No punches yet.')); }
     else if (!list.length) { pl.appendChild(el('div', 'empty', 'Nothing since your last payday.')); }
-    list.slice(-120).forEach(function (s) {
+    /* Drawn rows only. No punch is ever removed: every one still counts in
+       every total and is in the JSON export. Storage is not the reason for the
+       window -- a punch is 95 bytes, so ten years is about 240 KB of a ~5 MB
+       budget -- it is just that nobody wants 2,000 rows rendered at once. */
+    var hiddenByCap = Math.max(0, list.length - punchDrawCap);
+    if (hiddenByCap) {
+      var more = Math.min(PUNCH_PAGE, hiddenByCap);
+      var mrow = el('div', 'btnrow revealrow');
+      var mb = el('button', 'btn sm', 'Show ' + more + ' older (' + hiddenByCap + ' not shown)');
+      mb.type = 'button';
+      mb.addEventListener('click', function () {
+        punchDrawCap += PUNCH_PAGE;
+        renderPunches();
+      });
+      mrow.appendChild(mb);
+      pl.appendChild(mrow);
+    }
+    list.slice(-punchDrawCap).forEach(function (s) {
       var it = el('div', 'item');
       var dayK = E.dateKey(s.start, TZ());
       var open = s.end == null;
@@ -3863,7 +3886,11 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
   function show(v) {
     if (VIEWS.indexOf(v) === -1) v = 'home';
     if (!$('checkSheet').hidden) closeCheckSheet();
-    if (v === 'home') { clockTab = 'clock'; showOldPunches = false; showOldEntries = false; }
+    if (v === 'home') {
+      clockTab = 'clock';
+      showOldPunches = false; showOldEntries = false;
+      punchDrawCap = PUNCH_PAGE;
+    }
     if (v === 'checks') payTab = 'checks';
     if (v === 'bills') billTab = 'monthly';
     current = v;
