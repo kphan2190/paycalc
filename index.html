@@ -2850,11 +2850,13 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     }
     revealRow(ol, settled.length, showOldEntries, 'entry', 'entries', function () {
       showOldEntries = !showOldEntries;
+      drawCap.entry = showOldEntries ? keys.length + LIST_PAGE : LIST_PAGE;
       renderOverrides();
-    });
+    }, LIST_PAGE);
+    olderRow(ol, keys.length, 'entry', renderOverrides);
     if (!all.length) ol.appendChild(el('div', 'sub', 'No manual entries. Every week without punches uses the assumed OT on PayCalc.'));
     else if (!keys.length) ol.appendChild(el('div', 'sub', 'Nothing still to be paid.'));
-    keys.forEach(function (ws) {
+    keys.slice(-drawCap.entry).forEach(function (ws) {
       var ov = DB.weekOverrides[ws];
       var it = el('div', 'item');
       var desc = ov.baseOnly ? 'base only, no overtime'
@@ -3209,8 +3211,9 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
      above the list opens it another pageful at a time, so every punch stays
      reachable and editable however many there are. Ten at a time: a punch list
      is scrolled past, not read. Back to one page on each visit. */
-  var PUNCH_PAGE = 10;
-  var punchDrawCap = PUNCH_PAGE;
+  var LIST_PAGE = 10;
+  var drawCap = { punch: LIST_PAGE, entry: LIST_PAGE, marker: LIST_PAGE };
+  var showOldMarkers = false;
 
   function weekIsSettled(weekStartKeyValue) {
     var pd = E.paydayForWeekStart(weekStartKeyValue, settingsForWeek(weekStartKeyValue));
@@ -3220,12 +3223,35 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     return weekIsSettled(E.weekStartKey(dayKey, 1));
   }
 
-  function revealRow(parent, count, shown, one, many, onToggle) {
-    if (!count) return;
-    var noun = count === 1 ? one : many;
+  /* `count` is how many are hidden; `reveals` is how many one tap actually
+     brings into view, which is smaller when the list pages. The label promises
+     only what the tap delivers -- it used to say "Show 33" and then add three
+     rows, because the draw window was still only a page deep. */
+  /* "Show 10 older (23 not shown)". Opens the window another page; drawn only
+     while something is still outside it. */
+  function olderRow(parent, total, which, rerender) {
+    var hidden = Math.max(0, total - drawCap[which]);
+    if (!hidden) return;
     var row = el('div', 'btnrow revealrow');
     var b = el('button', 'btn sm',
-      (shown ? 'Hide ' : 'Show ') + count + ' earlier ' + noun);
+      'Show ' + Math.min(LIST_PAGE, hidden) + ' older (' + hidden + ' not shown)');
+    b.type = 'button';
+    b.addEventListener('click', function () {
+      drawCap[which] += LIST_PAGE;
+      rerender();
+    });
+    row.appendChild(b);
+    parent.appendChild(row);
+  }
+
+  function revealRow(parent, count, shown, one, many, onToggle, reveals) {
+    if (!count) return;
+    var n = shown ? count : Math.min(reveals == null ? count : reveals, count);
+    var noun = n === 1 ? one : many;
+    var row = el('div', 'btnrow revealrow');
+    var b = el('button', 'btn sm',
+      (shown ? 'Hide ' + count + ' earlier ' + noun
+             : 'Show ' + n + (n < count ? ' of ' + count : '') + ' earlier ' + noun));
     b.type = 'button';
     b.addEventListener('click', onToggle);
     row.appendChild(b);
@@ -3245,28 +3271,20 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     // The control sits above the list, so what it reveals drops down from it.
     revealRow(pl, settled.length, showOldPunches, 'punch', 'punches', function () {
       showOldPunches = !showOldPunches;
+      // Opening the fold opens the window far enough to actually show a page
+      // of what it just revealed, rather than a few rows of it.
+      if (showOldPunches) drawCap.punch = list.length + LIST_PAGE;
+      else drawCap.punch = LIST_PAGE;
       renderPunches();
-    });
+    }, LIST_PAGE);
     if (!all.length) { pl.appendChild(el('div', 'empty', 'No punches yet.')); }
     else if (!list.length) { pl.appendChild(el('div', 'empty', 'Nothing since your last payday.')); }
     /* Drawn rows only. No punch is ever removed: every one still counts in
        every total and is in the JSON export. Storage is not the reason for the
        window -- a punch is 95 bytes, so ten years is about 240 KB of a ~5 MB
        budget -- it is just that nobody wants 2,000 rows rendered at once. */
-    var hiddenByCap = Math.max(0, list.length - punchDrawCap);
-    if (hiddenByCap) {
-      var more = Math.min(PUNCH_PAGE, hiddenByCap);
-      var mrow = el('div', 'btnrow revealrow');
-      var mb = el('button', 'btn sm', 'Show ' + more + ' older (' + hiddenByCap + ' not shown)');
-      mb.type = 'button';
-      mb.addEventListener('click', function () {
-        punchDrawCap += PUNCH_PAGE;
-        renderPunches();
-      });
-      mrow.appendChild(mb);
-      pl.appendChild(mrow);
-    }
-    list.slice(-punchDrawCap).forEach(function (s) {
+    olderRow(pl, list.length, 'punch', renderPunches);
+    list.slice(-drawCap.punch).forEach(function (s) {
       var it = el('div', 'item');
       var dayK = E.dateKey(s.start, TZ());
       var open = s.end == null;
@@ -3316,11 +3334,26 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     });
 
     var ml = $('markerList'); ml.innerHTML = '';
-    var mks = Object.keys(DB.dayMarkers).filter(function (k) { return DB.dayMarkers[k]; }).sort();
+    var allMks = Object.keys(DB.dayMarkers).filter(function (k) { return DB.dayMarkers[k]; }).sort();
+    var settledMks = allMks.filter(dayIsSettled);
+    var upcoming = allMks.filter(function (k) { return !dayIsSettled(k); });
+    var mks = showOldMarkers ? allMks : upcoming;
+    // Always the days still to be paid, so the header does not change meaning
+    // when the settled ones are revealed.
     var mc = $('markerCount');
-    if (mc) mc.textContent = mks.length ? mks.length + (mks.length === 1 ? ' day' : ' days') : 'none';
-    if (!mks.length) ml.appendChild(el('div', 'sub', 'No PTO, holiday or unpaid days marked.'));
-    mks.forEach(function (k) {
+    if (mc) {
+      mc.textContent = upcoming.length
+        ? upcoming.length + (upcoming.length === 1 ? ' day' : ' days') : 'none';
+    }
+    revealRow(ml, settledMks.length, showOldMarkers, 'day', 'days', function () {
+      showOldMarkers = !showOldMarkers;
+      drawCap.marker = showOldMarkers ? mks.length + LIST_PAGE : LIST_PAGE;
+      renderPunches();
+    }, LIST_PAGE);
+    olderRow(ml, mks.length, 'marker', renderPunches);
+    if (!allMks.length) ml.appendChild(el('div', 'sub', 'No PTO, holiday or unpaid days marked.'));
+    else if (!mks.length) ml.appendChild(el('div', 'sub', 'Nothing since your last payday.'));
+    mks.slice(-drawCap.marker).forEach(function (k) {
       var it = el('div', 'item');
       it.innerHTML = '<div class="top"><span class="name">' + esc(fmtKeyYear(k)) +
         '</span></div><div class="meta">' + esc(markerLabel(DB.dayMarkers[k])) + '</div>';
@@ -3888,8 +3921,8 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     if (!$('checkSheet').hidden) closeCheckSheet();
     if (v === 'home') {
       clockTab = 'clock';
-      showOldPunches = false; showOldEntries = false;
-      punchDrawCap = PUNCH_PAGE;
+      showOldPunches = false; showOldEntries = false; showOldMarkers = false;
+      drawCap.punch = drawCap.entry = drawCap.marker = LIST_PAGE;
     }
     if (v === 'checks') payTab = 'checks';
     if (v === 'bills') billTab = 'monthly';
