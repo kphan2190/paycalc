@@ -208,6 +208,12 @@ nav.tabs button[aria-current="page"] { color: var(--accent); }
 .cardtoggle .chev { font-size: 0.9rem; transition: transform 0.15s ease; }
 .cardtoggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
 .cardtoggle[aria-expanded="true"] { color: var(--text); }
+/* A count beside a folded card's name. The header is uppercase and letter-spaced;
+   the count is not, so it reads as an aside rather than part of the title. */
+.cardtoggle .count {
+  margin-left: 8px; text-transform: none; letter-spacing: 0;
+  font-weight: 600; font-size: 0.82rem; color: var(--muted);
+}
 
 /* Tabs read as a strip of browser tabs rather than a row of buttons: they share
    one rule along the bottom, and the selected tab rises through it and takes the
@@ -380,19 +386,18 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
 .savingsrow .num { font-size: 1.2rem; }
 
 /* How many paychecks to show. Sits above the list and is closed off by the same
-   4px rule that closes it at the bottom, so the two read as the list's ends. */
+   4px rule that closes it at the bottom, so the two read as the list's ends.
+   The pair pushes to opposite edges, past on the left and future on the right,
+   each label hugging its own side. */
 .weekspan {
+  display: flex; justify-content: space-between; gap: 12px;
   margin: 0 -14px 14px;
   padding: 0 14px 14px;
   border-bottom: 4px solid var(--line-strong);
 }
-.spanrow { display: flex; align-items: flex-end; gap: 8px; }
-.spanrow + .spanrow { margin-top: 10px; }
-.spanrow .field { flex: 1; min-width: 0; margin-bottom: 0; }
-.spanrow .step {
-  flex: none; min-width: 52px; padding: 0;
-  font-size: 1.35rem; line-height: 1; font-weight: 700;
-}
+.weekspan .field { flex: 0 1 46%; min-width: 0; margin-bottom: 0; }
+.weekspan .field:last-child > span { text-align: right; }
+.weekspan input { text-align: center; }
 
 /* The paycheck itself: centred in front of a dimmed, blurred page, so nothing
    has to be scrolled to in order to read it. */
@@ -497,6 +502,16 @@ dialog h2 { margin-bottom: 12px; }
 
   <div id="homePunches" hidden>
   <div class="card">
+    <button class="cardtoggle" type="button" data-panel="overridePanel" aria-expanded="false">
+      <span>Manual Entry for Week<span class="count" id="overrideCount"></span></span>
+      <span class="chev" aria-hidden="true">&#9662;</span>
+    </button>
+    <div id="overridePanel" hidden>
+      <div id="overrideList"></div>
+      <div class="btnrow" style="margin-top:10px"><button class="btn" id="addOverride">+ Add a manual entry</button></div>
+    </div>
+  </div>
+  <div class="card">
     <h3>Punches</h3>
     <div class="btnrow" style="margin-bottom:12px">
       <button class="btn primary" id="addPunch">+ Add a punch</button>
@@ -561,18 +576,10 @@ dialog h2 { margin-bottom: 12px; }
 
     <div id="payChecksPanel">
       <div class="weekspan">
-        <div class="spanrow">
-          <button class="btn step" type="button" data-span="weeksBack" data-delta="-1" aria-label="One week fewer behind">&minus;</button>
-          <label class="field"><span>Number of past weeks</span>
-            <input type="number" id="weeksBack" step="1" min="0" max="52" inputmode="numeric"></label>
-          <button class="btn step" type="button" data-span="weeksBack" data-delta="1" aria-label="One week more behind">+</button>
-        </div>
-        <div class="spanrow">
-          <button class="btn step" type="button" data-span="weeksAhead" data-delta="-1" aria-label="One week fewer ahead">&minus;</button>
-          <label class="field"><span>Number of future weeks</span>
-            <input type="number" id="weeksAhead" step="1" min="0" max="52" inputmode="numeric"></label>
-          <button class="btn step" type="button" data-span="weeksAhead" data-delta="1" aria-label="One week more ahead">+</button>
-        </div>
+        <label class="field"><span>Past weeks</span>
+          <input type="number" id="weeksBack" step="1" min="0" max="52" inputmode="numeric"></label>
+        <label class="field"><span>Future weeks</span>
+          <input type="number" id="weeksAhead" step="1" min="0" max="52" inputmode="numeric"></label>
       </div>
       <div id="checkList"></div>
       <div class="rowline savingsrow"><span>Potential savings <span class="sub">across every paycheck shown</span></span><span class="num savings" id="runningTotal"></span></div>
@@ -607,11 +614,6 @@ dialog h2 { margin-bottom: 12px; }
     <div class="btnrow" style="margin-top:12px"><button class="btn primary" id="addOneTime">+ Add one-time pay</button></div>
   </div>
 
-  <div class="card">
-    <h3>Week overrides</h3>
-    <div id="overrideList"></div>
-    <div class="btnrow" style="margin-top:10px"><button class="btn" id="addOverride">+ Override a week</button></div>
-  </div>
   </div>
 </section>
 
@@ -2437,7 +2439,7 @@ dialog h2 { margin-bottom: 12px; }
         Math.round(100 * p.billsTotal / p.net) + '% of net pay.'));
     }
     if (p.source === 'override') {
-      b.appendChild(el('div', 'sub', 'This week uses a manual override. Delete it under Week overrides to use logged punches instead.'));
+      b.appendChild(el('div', 'sub', 'This week uses a manual entry. Delete it under Manual Entry for Week, on the Punches tab, to use logged punches instead.'));
     }
     return b;
   }
@@ -2446,7 +2448,7 @@ dialog h2 { margin-bottom: 12px; }
     var card = $('checkSheetCard');
     card.innerHTML = '';
     var tag = p.source === 'actual' ? '<span class="tag actual">logged</span>'
-            : p.source === 'override' ? '<span class="tag over">override</span>'
+            : p.source === 'override' ? '<span class="tag over">manual entry</span>'
             : '<span class="tag proj">projected</span>';
     var head = el('div', 'sheethead');
     head.innerHTML = '<div><strong>' + esc(fmtKey(p.payday, true)) + '</strong> ' + tag +
@@ -2535,7 +2537,7 @@ dialog h2 { margin-bottom: 12px; }
 
     all.forEach(function (p) {
       var tag = p.source === 'actual' ? '<span class="tag actual">logged</span>'
-              : p.source === 'override' ? '<span class="tag over">override</span>'
+              : p.source === 'override' ? '<span class="tag over">manual entry</span>'
               : '<span class="tag proj">projected</span>';
       var rowBills = p.allBillsTotal != null ? p.allBillsTotal : p.billsTotal;
       var rowEl = el('button', 'checkrow');
@@ -2555,18 +2557,43 @@ dialog h2 { margin-bottom: 12px; }
 
     renderOneTime();
 
-    // Overrides
+    renderOverrides();
+  }
+
+  /* Manual entries live on the Punches tab, folded away. The header counts the
+     ones inside the weeks shown on PayCalc; any outside it are still listed and
+     still editable, but said to be outside so the count never looks wrong. */
+  function overrideWindow() {
+    var thisWs = E.weekStartKey(todayKey(), 1);
+    return {
+      from: E.addDaysKey(thisWs, -7 * (DB.prefs.weeksBack || 0)),
+      to: E.addDaysKey(thisWs, 7 * (DB.prefs.weeksAhead || 0))
+    };
+  }
+
+  function renderOverrides() {
     var ol = $('overrideList'); ol.innerHTML = '';
     var keys = Object.keys(DB.weekOverrides).sort();
-    if (!keys.length) ol.appendChild(el('div', 'sub', 'No overrides. Every week without punches uses the assumed OT above.'));
+    var win = overrideWindow();
+    var inWindow = keys.filter(function (ws) { return ws >= win.from && ws <= win.to; });
+    var cnt = $('overrideCount');
+    if (cnt) {
+      // Short enough to sit on the header's one line; the panel says the rest.
+      cnt.textContent = inWindow.length
+        ? inWindow.length + (inWindow.length === 1 ? ' entry' : ' entries')
+        : 'none';
+    }
+    if (!keys.length) ol.appendChild(el('div', 'sub', 'No manual entries. Every week without punches uses the assumed OT on PayCalc.'));
     keys.forEach(function (ws) {
       var ov = DB.weekOverrides[ws];
       var it = el('div', 'item');
       var desc = ov.baseOnly ? 'base only, no overtime'
         : hnum(ov.ot15 || 0) + ' h at 1.5x' + (ov.ot2 ? ', ' + hnum(ov.ot2) + ' h at 2x' : '');
+      var outside = !(ws >= win.from && ws <= win.to);
       it.innerHTML = '<div class="top"><span class="name">' + esc(fmtKeyYear(ws)) +
         '</span><span class="sub">paid ' + esc(fmtKey(E.paydayForWeekStart(ws, S()))) + '</span></div>' +
-        '<div class="meta">' + esc(desc) + (ov.note ? ' &middot; ' + esc(ov.note) : '') +
+        '<div class="meta">' + esc(desc) + (outside ? ' &middot; outside the weeks shown' : '') +
+        (ov.note ? ' &middot; ' + esc(ov.note) : '') +
         (ov.unpaidDays ? ' &middot; ' + ov.unpaidDays + ' unpaid day' + (ov.unpaidDays > 1 ? 's' : '') : '') +
         (ov.unpaidHours ? ' &middot; ' + esc(hrs(ov.unpaidHours)) + ' unpaid' : '') + '</div>';
       var acts = el('div', 'acts');
@@ -2574,8 +2601,8 @@ dialog h2 { margin-bottom: 12px; }
       ed.onclick = function () { overrideDialog(ws); };
       var rm = el('button', 'btn sm danger', 'Delete');
       rm.onclick = function () {
-        confirmThen('Delete the override for the week of ' + fmtKeyYear(ws) + '?', function () {
-          delete DB.weekOverrides[ws]; save(); renderAll(); toast('Override deleted');
+        confirmThen('Delete the manual entry for the week of ' + fmtKeyYear(ws) + '?', function () {
+          delete DB.weekOverrides[ws]; save(); renderAll(); toast('Manual entry deleted');
         });
       };
       acts.appendChild(ed); acts.appendChild(rm);
@@ -2649,7 +2676,7 @@ dialog h2 { margin-bottom: 12px; }
 
   function overrideDialog(ws) {
     var ov = ws ? DB.weekOverrides[ws] : {};
-    openForm(ws ? 'Override week of ' + fmtKeyYear(ws) : 'Override a week', [
+    openForm(ws ? 'Manual entry for week of ' + fmtKeyYear(ws) : 'Add a manual entry', [
       { key: 'week', label: 'Any date in the week (snaps to Monday)', type: 'date', value: ws || todayKey() },
       { key: 'baseOnly', label: 'Base only (no overtime)', type: 'checkbox', value: !!ov.baseOnly },
       { key: 'ot15', label: 'Overtime hours at 1.5x', type: 'number', step: 0.25, min: 0, value: ov.ot15 == null ? '' : ov.ot15 },
@@ -2694,18 +2721,6 @@ dialog h2 { margin-bottom: 12px; }
   $('offPaid').addEventListener('change', function () {
     DB.prefs.offPaid = this.value === '1';
     save(); renderChecks();
-  });
-
-  /* The - and + beside each week field. Both floor at 0, so the narrowest
-     window is this week's paycheck on its own. */
-  Array.prototype.forEach.call(document.querySelectorAll('.spanrow .step'), function (b) {
-    b.addEventListener('click', function () {
-      var key = b.dataset.span;
-      var next = Math.max(0, Math.min(52, (+DB.prefs[key] || 0) + (+b.dataset.delta)));
-      if (next === (+DB.prefs[key] || 0)) return;
-      DB.prefs[key] = next;
-      save(); renderChecks();
-    });
   });
 
   ['assumedOt', 'assumedOt2', 'weeksAhead', 'weeksBack'].forEach(function (id) {
@@ -2912,6 +2927,7 @@ dialog h2 { margin-bottom: 12px; }
   /* ---------------- PUNCHES ---------------- */
 
   function renderPunches() {
+    renderOverrides();
     var pl = $('punchList'); pl.innerHTML = '';
     var list = DB.sessions.slice().sort(function (a, b) { return b.start - a.start; });
     if (!list.length) { pl.appendChild(el('div', 'empty', 'No punches yet.')); }
