@@ -2838,14 +2838,17 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     var ol = $('overrideList'); ol.innerHTML = '';
     var all = Object.keys(DB.weekOverrides).sort();
     var win = overrideWindow();
-    var inWindow = all.filter(function (ws) { return ws >= win.from && ws <= win.to; });
     var settled = all.filter(weekIsSettled);
-    var keys = showOldEntries ? all : all.filter(function (ws) { return !weekIsSettled(ws); });
+    var upcoming = all.filter(function (ws) { return !weekIsSettled(ws); });
+    var keys = showOldEntries ? all : upcoming;
+    /* Entries still to be paid -- the same thing the folded list shows, and the
+       same thing the PTO card counts. It used to count the entries inside
+       PayCalc's week window instead, which is a different set: an unpaid entry
+       from before that window made the header read "none" above a visible row. */
     var cnt = $('overrideCount');
     if (cnt) {
-      // Short enough to sit on the header's one line; the panel says the rest.
-      cnt.textContent = inWindow.length
-        ? inWindow.length + (inWindow.length === 1 ? ' entry' : ' entries')
+      cnt.textContent = upcoming.length
+        ? upcoming.length + (upcoming.length === 1 ? ' entry' : ' entries')
         : 'none';
     }
     revealRow(ol, settled.length, showOldEntries, 'entry', 'entries', function () {
