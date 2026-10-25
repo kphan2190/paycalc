@@ -33,6 +33,10 @@
 })();
 </script>
 <style>:root {
+  /* 'light dark' lets the browser draw checkboxes, dropdowns, scrollbars and
+     pickers to follow the DEVICE. That is right while the theme follows the
+     device, but it is why a checkbox came out black with the app forced to
+     light on a dark phone. An explicit choice pins the scheme to match. */
   color-scheme: light dark;
   --bg: #f4f5f7;
   --surface: #ffffff;
@@ -84,6 +88,9 @@
     /* Dark mode: the strip is already distinct against the card. */
   }
 }
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+
 :root[data-theme="dark"] {
   --bg: #0f1115;
   --surface: #171a21;
@@ -198,6 +205,11 @@ nav.tabs button[aria-current="page"] { color: var(--accent); }
 /* Shift hours read green once any are logged, the same way the two overtime
    tiers do. Its own token, so base stays distinct from 1.5x and 2x. */
 .cbase { color: var(--pay-base); }
+
+/* The "show what is already paid" control sits ABOVE its list, so what it
+   reveals drops down from it like a curtain being lifted. */
+.revealrow { margin: 0 0 10px; justify-content: center; }
+.revealrow .btn { color: var(--muted); width: 100%; }
 .warnbox {
   background: var(--warn-bg); color: var(--warn); border: 1px solid currentColor;
   border-radius: 10px; padding: 9px 11px; font-size: 0.85rem; margin: 10px 0 0;
@@ -2824,9 +2836,11 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
 
   function renderOverrides() {
     var ol = $('overrideList'); ol.innerHTML = '';
-    var keys = Object.keys(DB.weekOverrides).sort();
+    var all = Object.keys(DB.weekOverrides).sort();
     var win = overrideWindow();
-    var inWindow = keys.filter(function (ws) { return ws >= win.from && ws <= win.to; });
+    var inWindow = all.filter(function (ws) { return ws >= win.from && ws <= win.to; });
+    var settled = all.filter(weekIsSettled);
+    var keys = showOldEntries ? all : all.filter(function (ws) { return !weekIsSettled(ws); });
     var cnt = $('overrideCount');
     if (cnt) {
       // Short enough to sit on the header's one line; the panel says the rest.
@@ -2834,7 +2848,12 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
         ? inWindow.length + (inWindow.length === 1 ? ' entry' : ' entries')
         : 'none';
     }
-    if (!keys.length) ol.appendChild(el('div', 'sub', 'No manual entries. Every week without punches uses the assumed OT on PayCalc.'));
+    revealRow(ol, settled.length, showOldEntries, 'entry', 'entries', function () {
+      showOldEntries = !showOldEntries;
+      renderOverrides();
+    });
+    if (!all.length) ol.appendChild(el('div', 'sub', 'No manual entries. Every week without punches uses the assumed OT on PayCalc.'));
+    else if (!keys.length) ol.appendChild(el('div', 'sub', 'Nothing still to be paid.'));
     keys.forEach(function (ws) {
       var ov = DB.weekOverrides[ws];
       var it = el('div', 'item');
@@ -2865,7 +2884,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
   function renderOneTime() {
     var list = $('oneTimeList'); list.innerHTML = '';
     var entries = (DB.oneTimePay || []).slice().sort(function (a, b) {
-      return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
+      return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
     });
     if (!entries.length) {
       list.appendChild(el('div', 'sub', 'Nothing yet. Use this for advance vacation pay or any ' +
@@ -3177,12 +3196,54 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
 
   /* ---------------- PUNCHES ---------------- */
 
+  /* Lists show whatever is still coming to you. The trigger is the PAYDAY, not
+     the date on the entry: a week that ended on Sunday but is paid on Tuesday
+     is still ahead of you on the Monday, and stays in the list until its cheque
+     has actually been paid. Once that payday has passed, nothing about the
+     entry can change a cheque still to come, so it folds away.
+
+     Nothing is deleted -- hidden punches still count in every total and are
+     still in the JSON export. Not remembered: every visit starts folded. */
+  var showOldPunches = false, showOldEntries = false;
+
+  function weekIsSettled(weekStartKeyValue) {
+    var pd = E.paydayForWeekStart(weekStartKeyValue, settingsForWeek(weekStartKeyValue));
+    return pd < todayKey();
+  }
+  function dayIsSettled(dayKey) {
+    return weekIsSettled(E.weekStartKey(dayKey, 1));
+  }
+
+  function revealRow(parent, count, shown, one, many, onToggle) {
+    if (!count) return;
+    var noun = count === 1 ? one : many;
+    var row = el('div', 'btnrow revealrow');
+    var b = el('button', 'btn sm',
+      (shown ? 'Hide ' : 'Show ') + count + ' earlier ' + noun);
+    b.type = 'button';
+    b.addEventListener('click', onToggle);
+    row.appendChild(b);
+    parent.appendChild(row);
+  }
+
   function renderPunches() {
     renderOverrides();
     var pl = $('punchList'); pl.innerHTML = '';
-    var list = DB.sessions.slice().sort(function (a, b) { return b.start - a.start; });
-    if (!list.length) { pl.appendChild(el('div', 'empty', 'No punches yet.')); }
-    list.slice(0, 120).forEach(function (s) {
+    /* Oldest first. The settled entries are the early ones, so they sit right
+       under the button that reveals them and drop into place without pushing
+       anything around -- and the list reads as a timeline either way. */
+    var all = DB.sessions.slice().sort(function (a, b) { return a.start - b.start; });
+    var settled = all.filter(function (s) { return dayIsSettled(E.dateKey(s.start, TZ())); });
+    var list = showOldPunches ? all
+             : all.filter(function (s) { return !dayIsSettled(E.dateKey(s.start, TZ())); });
+    // The control sits above the list, so what it reveals drops down from it.
+    revealRow(pl, settled.length, showOldPunches, 'punch', 'punches', function () {
+      showOldPunches = !showOldPunches;
+      renderPunches();
+    });
+    if (!all.length) { pl.appendChild(el('div', 'empty', 'No punches yet.')); }
+    else if (!list.length) { pl.appendChild(el('div', 'empty', 'Nothing since your last payday.')); }
+    list.slice(-120).forEach(function (s) {
       var it = el('div', 'item');
       var dayK = E.dateKey(s.start, TZ());
       var open = s.end == null;
@@ -3232,7 +3293,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     });
 
     var ml = $('markerList'); ml.innerHTML = '';
-    var mks = Object.keys(DB.dayMarkers).filter(function (k) { return DB.dayMarkers[k]; }).sort().reverse();
+    var mks = Object.keys(DB.dayMarkers).filter(function (k) { return DB.dayMarkers[k]; }).sort();
     var mc = $('markerCount');
     if (mc) mc.textContent = mks.length ? mks.length + (mks.length === 1 ? ' day' : ' days') : 'none';
     if (!mks.length) ml.appendChild(el('div', 'sub', 'No PTO, holiday or unpaid days marked.'));
@@ -3802,7 +3863,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
   function show(v) {
     if (VIEWS.indexOf(v) === -1) v = 'home';
     if (!$('checkSheet').hidden) closeCheckSheet();
-    if (v === 'home') clockTab = 'clock';
+    if (v === 'home') { clockTab = 'clock'; showOldPunches = false; showOldEntries = false; }
     if (v === 'checks') payTab = 'checks';
     if (v === 'bills') billTab = 'monthly';
     current = v;
