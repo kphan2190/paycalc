@@ -1679,7 +1679,7 @@ dialog h2 { margin-bottom: 12px; }
     theme: 'system', assumedOt15: 0, assumedOt2: 0, weeksBack: 0, weeksAhead: 5,
     warnShare: 40, excludeBillIds: [], setupDone: false, pendingHoliday: false,
     offDays: 0, offHours: 0, offMinutes: 0, offPaid: false,
-    billTab: 'monthly', holidayNudgeDismissed: ''
+    holidayNudgeDismissed: ''
   };
 
   // The oldest date this person has any data for, so a settings history that
@@ -2351,8 +2351,11 @@ dialog h2 { margin-bottom: 12px; }
     var warnShare = (DB.prefs.warnShare || 0) / 100;
     var b = el('div', 'body');
     row(b, 'Gross', money(p.gross));
-    if (p.pay.ot15Hours) row(b, hnum(p.pay.ot15Hours) + ' h at 1.5x', money(p.pay.ot15Pay), 'c15');
-    if (p.pay.ot2Hours) row(b, hnum(p.pay.ot2Hours) + ' h at 2x', money(p.pay.ot2Pay), 'c2');
+    /* The breakdown lines are plain. Colour inside the sheet is reserved for the
+       figures that are the point of it: dues taken off, one-time pay added on,
+       the bills total, and what is left over. */
+    if (p.pay.ot15Hours) row(b, hnum(p.pay.ot15Hours) + ' h at 1.5x', money(p.pay.ot15Pay));
+    if (p.pay.ot2Hours) row(b, hnum(p.pay.ot2Hours) + ' h at 2x', money(p.pay.ot2Pay));
     if (pst.shiftPremium) {
       row(b, 'Shift premium included (' + money(pst.shiftPremium) + '/h)',
           money(premiumShare(p, pst)));
@@ -2366,14 +2369,14 @@ dialog h2 { margin-bottom: 12px; }
     if (p.dues || p.oneTimeTotal) row(b, 'Take-home', money(p.takeHome), 'total');
     b.appendChild(el('h3', null, 'Bills ' + esc(fmtKey(p.windowStart)) + ' &ndash; ' + esc(fmtKey(p.windowEnd))));
     if (!p.bills.length) b.appendChild(el('div', 'sub', 'Nothing due in this window.'));
-    // Bills come off the cheque, so they read like the dues line: a red negative.
+    // Each bill and the monthly/weekly split are plain; only their total is red.
     p.bills.forEach(function (bl) {
       row(b, esc(bl.label) + ' <span class="sub">' + esc(fmtKey(bl.dateKey)) + '</span>',
-          money(-bl.amount), negIf(bl.amount));
+          money(-bl.amount));
     });
     if (p.weeklyBillsTotal) {
-      row(b, 'Monthly bills', money(-p.billsTotal), negIf(p.billsTotal));
-      row(b, 'Weekly bills', money(-p.weeklyBillsTotal), negIf(p.weeklyBillsTotal));
+      row(b, 'Monthly bills', money(-p.billsTotal));
+      row(b, 'Weekly bills', money(-p.weeklyBillsTotal));
     }
     var billsAll = p.allBillsTotal != null ? p.allBillsTotal : p.billsTotal;
     row(b, 'Bills total', money(-billsAll), ('total ' + negIf(billsAll)).trim());
@@ -2681,13 +2684,15 @@ dialog h2 { margin-bottom: 12px; }
     $('weeklyTotal').textContent = money(E.weeklyBillsTotal(S().weeklyBills));
   }
 
+  /* Not remembered, like the clock and PayCalc pages: arriving at Bills always
+     shows the monthly bills, which is the list people keep. */
+  var billTab = 'monthly';
   function setBillTab(which) {
-    DB.prefs.billTab = which === 'weekly' ? 'weekly' : 'monthly';
-    save();
-    $('billMonthly').hidden = DB.prefs.billTab !== 'monthly';
-    $('billWeekly').hidden = DB.prefs.billTab !== 'weekly';
+    billTab = which === 'weekly' ? 'weekly' : 'monthly';
+    $('billMonthly').hidden = billTab !== 'monthly';
+    $('billWeekly').hidden = billTab !== 'weekly';
     Array.prototype.forEach.call($('billTabs').children, function (b) {
-      if (b.dataset.billtab === DB.prefs.billTab) b.setAttribute('aria-current', 'page');
+      if (b.dataset.billtab === billTab) b.setAttribute('aria-current', 'page');
       else b.removeAttribute('aria-current');
     });
   }
@@ -2698,7 +2703,7 @@ dialog h2 { margin-bottom: 12px; }
   function renderBills() {
     var payDay = DOWNAMES[E.payDowOf(S())];
     $('rangeTueTue').textContent = 'Next ' + payDay + ' → ' + payDay;
-    setBillTab(DB.prefs.billTab);
+    setBillTab(billTab);
     renderWeeklyBills();
     var bl = $('billList'); bl.innerHTML = '';
     var total = 0;
@@ -3412,6 +3417,7 @@ dialog h2 { margin-bottom: 12px; }
     if (!$('checkSheet').hidden) closeCheckSheet();
     if (v === 'home') clockTab = 'clock';
     if (v === 'checks') payTab = 'checks';
+    if (v === 'bills') billTab = 'monthly';
     current = v;
     VIEWS.forEach(function (x) { $('v-' + x).hidden = x !== v; });
     Array.prototype.forEach.call($('tabs').children, function (b) {
