@@ -33,14 +33,6 @@
   --pay-2x: #008000;
   --ot15: var(--pay-1-5x);
   --ot2: var(--pay-2x);
-  /* The savings strip. In light mode a pale fill cannot win against a column of
-     green paycheck figures above it, so the strip goes dark and carries the
-     total in reverse -- one band of contrast the rows cannot compete with. */
-  --strip-bg: #1d2331;
-  --strip-text: #e9ebf0;
-  --strip-muted: #a3abbb;
-  --strip-pos: #22e07a;
-  --strip-neg: #ff6b6b;
   --radius: 14px;
   --tap: 48px;
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -68,11 +60,6 @@
     --ot15: var(--pay-1-5x);
     --ot2: var(--pay-2x);
     /* Dark mode: the strip is already distinct against the card. */
-    --strip-bg: var(--surface-2);
-    --strip-text: var(--text);
-    --strip-muted: var(--muted);
-    --strip-pos: var(--pay-2x);
-    --strip-neg: var(--stop);
   }
 }
 :root[data-theme="dark"] {
@@ -95,11 +82,6 @@
   --ot15: var(--pay-1-5x);
   --ot2: var(--pay-2x);
   /* Dark mode: the strip is already distinct against the card. */
-  --strip-bg: var(--surface-2);
-  --strip-text: var(--text);
-  --strip-muted: var(--muted);
-  --strip-pos: var(--pay-2x);
-  --strip-neg: var(--stop);
 }
 :root[data-theme="light"] {
   --bg: #f4f5f7;
@@ -123,14 +105,6 @@
   --pay-2x: #008000;
   --ot15: var(--pay-1-5x);
   --ot2: var(--pay-2x);
-  /* The savings strip. In light mode a pale fill cannot win against a column of
-     green paycheck figures above it, so the strip goes dark and carries the
-     total in reverse -- one band of contrast the rows cannot compete with. */
-  --strip-bg: #1d2331;
-  --strip-text: #e9ebf0;
-  --strip-muted: #a3abbb;
-  --strip-pos: #22e07a;
-  --strip-neg: #ff6b6b;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -397,17 +371,13 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
 .savingsrow {
   margin: 14px -14px -14px;
   padding: 15px 14px calc(15px + env(safe-area-inset-bottom, 0px));
-  border-top: 2px solid var(--accent);
-  background: var(--strip-bg);
-  color: var(--strip-text);
-  border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px);
+  /* No fill. The rule is the same colour as the ones dividing the paychecks
+     above, just twice as thick, and it runs the full width of the card. */
+  border-top: 4px solid var(--line-strong);
   font-weight: 700;
   align-items: baseline;
 }
 .savingsrow .num { font-size: 1.2rem; }
-.savingsrow .sub { color: var(--strip-muted); }
-.savingsrow .num.savings { color: var(--strip-pos); }
-.savingsrow .num.neg { color: var(--strip-neg); }
 
 /* The paycheck itself: centred in front of a dimmed, blurred page, so nothing
    has to be scrolled to in order to read it. */
