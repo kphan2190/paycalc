@@ -1,15 +1,37 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0f1115">
+<meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
 <meta name="description" content="Personal clock-in/clock-out pay and bill tracker. All data stays in this browser.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Pay Tracker">
 <title>Pay Tracker</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234f8cf7'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%230b0d11' stroke-width='2.4'/%3E%3Cpath d='M16 10.5V16l4 2.5' stroke='%230b0d11' stroke-width='2.4' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
+<script>
+/* Runs before the first paint, so the launch screen is the colour the app is
+   about to be. Without it the page always started dark: fine when dark was the
+   only option, but a light-mode user now sees a black screen until the main
+   script runs -- long enough to notice on a cold start. Mirrors applyTheme():
+   an explicit choice pins the attribute, 'system' leaves it off so the CSS
+   follows prefers-color-scheme. */
+(function () {
+  try {
+    var p = (JSON.parse(localStorage.getItem('payTracker.v1') || '{}').prefs) || {};
+    if (p.theme !== 'light' && p.theme !== 'dark') return;
+    document.documentElement.setAttribute('data-theme', p.theme);
+    var metas = document.querySelectorAll('meta[name="theme-color"]');
+    for (var i = 0; i < metas.length; i++) metas[i].parentNode.removeChild(metas[i]);
+    var m = document.createElement('meta');
+    m.setAttribute('name', 'theme-color');
+    m.setAttribute('content', p.theme === 'light' ? '#f4f5f7' : '#0f1115');
+    document.head.appendChild(m);
+  } catch (e) { /* private mode, blocked storage: fall back to the device */ }
+})();
+</script>
 <style>:root {
   color-scheme: light dark;
   --bg: #f4f5f7;
@@ -812,6 +834,17 @@ dialog h2 { margin-bottom: 12px; }
 
 <div class="toast" id="toast"></div>
 
+<script>
+/* Registers the worker that keeps a copy of the app on the device. Guarded by
+   isSecureContext so it runs on GitHub Pages and on localhost but quietly does
+   nothing when the file is opened straight off disk. A failure here is never
+   fatal: the app simply loads from the network as it always did. */
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
+</script>
 <script>/* ============================================================
    PAY ENGINE v2  --  pure, no DOM, no storage.
    Single source of truth for every number the app displays.
@@ -3472,6 +3505,28 @@ dialog h2 { margin-bottom: 12px; }
     if (t === 'light' || t === 'dark') return t;
     return systemPrefersDark() ? 'dark' : 'light';
   }
+  /* The launch screen's colour. Following the device needs TWO metas, one per
+     colour scheme; an explicit choice needs exactly one. Rebuilt from scratch
+     each time, because overwriting whichever meta came first would leave the
+     light one holding the dark colour and the splash wrong on a cold start. */
+  function setThemeColorMetas(choice) {
+    var old = document.head.querySelectorAll('meta[name="theme-color"]');
+    for (var i = 0; i < old.length; i++) old[i].parentNode.removeChild(old[i]);
+    function add(colour, media) {
+      var m = document.createElement('meta');
+      m.setAttribute('name', 'theme-color');
+      m.setAttribute('content', colour);
+      if (media) m.setAttribute('media', media);
+      document.head.appendChild(m);
+    }
+    if (choice === 'light' || choice === 'dark') {
+      add(choice === 'light' ? '#f4f5f7' : '#0f1115');
+    } else {
+      add('#f4f5f7', '(prefers-color-scheme: light)');
+      add('#0f1115', '(prefers-color-scheme: dark)');
+    }
+  }
+
   function applyTheme() {
     var choice = DB.prefs.theme;
     if (choice === 'light' || choice === 'dark') {
@@ -3480,8 +3535,7 @@ dialog h2 { margin-bottom: 12px; }
       document.documentElement.removeAttribute('data-theme');
     }
     var eff = effectiveTheme();
-    var mt = document.querySelector('meta[name="theme-color"]');
-    if (mt) mt.setAttribute('content', eff === 'light' ? '#f4f5f7' : '#0f1115');
+    setThemeColorMetas(choice);
     $('themeBtn').innerHTML = eff === 'light' ? '&#9790;' : '&#9728;';
     $('themeBtn').title = 'Theme: ' + (choice === 'system' ? 'following your device' : choice) +
       '. Tap to switch to ' + (eff === 'light' ? 'dark' : 'light') + '.';
