@@ -2669,12 +2669,14 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
        the bills total, and what is left over. */
     /* Base, then the two overtime tiers: together they are the gross above.
        Worded like the Earned and Projected tabs so the three read alike. */
-    /* The hours actually PAID at base, not the hours scheduled: an unpaid day
-       is not a paid hour. Just the hours and what they came to -- unpaid time
-       is simply absent from both, which is the whole of what the line says. */
-    var perDay = E.dailyHoursOf(pst.schedule);
-    var paidBaseHours = Math.max(0, (p.pay.regularHours || 0)
-      - (p.pay.unpaidDays || 0) * perDay - (p.pay.unpaidHours || 0));
+    /* The hours the base actually covers, derived from the money rather than
+       from the punches. Clocked hours miss a paid day off: a PTO or holiday day
+       pays base with nothing punched against it, so counting punches showed 32 h
+       beside a five-day base. Since dailyBase is dailyHours x baseHourly, the
+       base divided by the base hourly rate is exactly the hours it paid for --
+       paid days off included, unpaid days and hours already gone. */
+    var baseHourly = p.pay.baseHourly || E.baseHourly(pst);
+    var paidBaseHours = baseHourly ? p.pay.baseGross / baseHourly : 0;
     row(b, hnum(paidBaseHours) + ' h at base', money(p.pay.baseGross));
     if (p.pay.ot15Hours) row(b, hnum(p.pay.ot15Hours) + ' h at 1.5x', money(p.pay.ot15Pay));
     if (p.pay.ot2Hours) row(b, hnum(p.pay.ot2Hours) + ' h at 2x', money(p.pay.ot2Pay));
