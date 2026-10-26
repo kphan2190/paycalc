@@ -2357,11 +2357,28 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
                  : ', <strong>-' + esc(money(total * E.baseHourly(S()))) + '</strong> off the base');
   }
 
+  /* The list starts at the oldest cheque still owed to you, not at the current
+     week. Those differ for the days between a week ending and its payday: the
+     week rolls over on the Monday, but the cheque for the week before it does
+     not arrive until the Tuesday, and it used to vanish from the list on the
+     Monday morning -- a day before the money landed. Walks back while the
+     earlier week is unsettled, using the same rule the punch and entry lists
+     use, so a cheque stays until the day after it is paid. */
+  function firstOwedWeekStart() {
+    var ws = E.weekStartKey(todayKey(), 1), guard = 0;
+    while (guard++ < 8) {
+      var prev = E.addDaysKey(ws, -7);
+      if (weekIsSettled(prev)) break;
+      ws = prev;
+    }
+    return ws;
+  }
+
   function paychecks(includeLive) {
     var thisWs = E.weekStartKey(todayKey(), 1);
     var p = DB.prefs;
     return E.buildPaychecks({
-      firstPayday: E.paydayForWeekStart(E.addDaysKey(thisWs, -7 * (p.weeksBack || 0)), S()),
+      firstPayday: E.paydayForWeekStart(E.addDaysKey(firstOwedWeekStart(), -7 * (p.weeksBack || 0)), S()),
       lastPayday: E.paydayForWeekStart(E.addDaysKey(thisWs, 7 * (p.weeksAhead || 0)), S()),
       sessions: closedSessions(includeLive),
       dayMarkers: DB.dayMarkers, bills: DB.bills, settings: TL(),
