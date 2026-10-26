@@ -2666,6 +2666,20 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     return p.gross - plain.gross;
   }
 
+  /* Which cheque this is. The source tag says where the figures came from;
+     "this week" says which week you are standing in, because the top rows are
+     not all projections in the same sense -- one may be owed for work already
+     done, and one is the week in progress. */
+  function checkTags(p) {
+    var tag = p.source === 'actual' ? '<span class="tag actual">logged</span>'
+            : p.source === 'override' ? '<span class="tag over">manual entry</span>'
+            : '<span class="tag proj">projected</span>';
+    if (p.weekStart === E.weekStartKey(todayKey(), 1)) {
+      tag += ' <span class="tag">this week</span>';
+    }
+    return tag;
+  }
+
   /* A paycheck opens as a card in front of the page rather than expanding in
      place: it is centred, so nothing has to be scrolled to, and the page behind
      is dimmed and blurred. Built as a plain overlay rather than <dialog>,
@@ -2736,9 +2750,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
   function openCheckSheet(p) {
     var card = $('checkSheetCard');
     card.innerHTML = '';
-    var tag = p.source === 'actual' ? '<span class="tag actual">logged</span>'
-            : p.source === 'override' ? '<span class="tag over">manual entry</span>'
-            : '<span class="tag proj">projected</span>';
+    var tag = checkTags(p);
     var head = el('div', 'sheethead');
     head.innerHTML = '<div><strong>' + esc(fmtKey(p.payday, true)) + '</strong> ' + tag +
       '<div class="sub">week ' + esc(fmtKey(p.weekStart)) + '&ndash;' + esc(fmtKey(p.weekEnd)) + '</div></div>' +
@@ -2827,9 +2839,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     var warnShare = (DB.prefs.warnShare || 0) / 100;
 
     all.forEach(function (p) {
-      var tag = p.source === 'actual' ? '<span class="tag actual">logged</span>'
-              : p.source === 'override' ? '<span class="tag over">manual entry</span>'
-              : '<span class="tag proj">projected</span>';
+      var tag = checkTags(p);
       var rowBills = p.allBillsTotal != null ? p.allBillsTotal : p.billsTotal;
       var rowEl = el('button', 'checkrow');
       rowEl.type = 'button';
