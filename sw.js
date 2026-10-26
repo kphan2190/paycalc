@@ -11,7 +11,7 @@
    the worker's, and are never cached, cleared or sent anywhere.             */
 'use strict';
 
-var VERSION = 'cb52a5f11ff8';
+var VERSION = 'df271e5020ac';
 var CACHE = 'paycalc-' + VERSION;
 var ASSETS = ['./', './index.html'];
 
