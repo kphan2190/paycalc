@@ -425,6 +425,9 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
 .tag.actual { color: var(--go); }
 .tag.proj { color: var(--accent); }
 .tag.over { color: var(--warn); }
+/* The week in progress: its own colour, since it is not one of the three
+   "where did these figures come from" states. */
+.tag.pending { color: var(--text); border-color: var(--line-strong); }
 /* ---------- paychecks ---------- */
 
 /* One paycheck in the list; tapping it opens the card. */
@@ -1694,14 +1697,22 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
       // still ahead of us is projected with today's settings.
       var paid = todayKey ? daysBetweenKeys(pd, todayKey) >= 0 : false;
       var st = paid ? settingsOn(tl, ws) : now;
+      // The last day of the week has passed. With no todayKey there is no
+      // "now" to compare against, so every week counts as finished.
+      var weekOver = todayKey ? daysBetweenKeys(addDaysKey(ws, 6), todayKey) > 0 : true;
 
       // An explicit override is a manual statement about the week, so it wins
       // over logged punches; delete the override to go back to the punches.
       if (isOverride(ov)) {
         source = 'override';
         pay = payFromOverride(ov, st, ws, markers);
-      // Marking a day off does not make a week "logged" -- only real hours do.
-      } else if (actual && actual.pay.totalHours > 0) {
+      /* A week is projected until it is over, then it reports what was worked.
+         Mid-week the punches are only part of the story -- the shifts still to
+         come have not happened yet -- so a Monday's hours would otherwise make
+         the whole cheque look like a fraction of itself. Once the week has
+         ended the punches ARE the story, and the assumption is dropped.
+         Marking a day off does not make a week "logged": only real hours do. */
+      } else if (weekOver && actual && actual.pay.totalHours > 0) {
         source = 'actual';
         pay = actual.pay;
       } else {
@@ -2671,12 +2682,18 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
      not all projections in the same sense -- one may be owed for work already
      done, and one is the week in progress. */
   function checkTags(p) {
+    var thisWs = E.weekStartKey(todayKey(), 1);
+    /* A week that has finished but has not been paid yet: the hours are done,
+       the money is not here. That is the one row where neither "logged" nor
+       "projected" says the useful thing. The week still in progress keeps its
+       ordinary label and is marked as the one you are standing in. */
+    if (p.weekStart < thisWs && !weekIsSettled(p.weekStart)) {
+      return '<span class="tag pending">pending pay</span>';
+    }
     var tag = p.source === 'actual' ? '<span class="tag actual">logged</span>'
             : p.source === 'override' ? '<span class="tag over">manual entry</span>'
             : '<span class="tag proj">projected</span>';
-    if (p.weekStart === E.weekStartKey(todayKey(), 1)) {
-      tag += ' <span class="tag">this week</span>';
-    }
+    if (p.weekStart === thisWs) tag += ' <span class="tag">this week</span>';
     return tag;
   }
 
