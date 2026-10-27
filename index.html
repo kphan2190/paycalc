@@ -428,6 +428,12 @@ input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--accent);
 /* The week in progress: its own colour, since it is not one of the three
    "where did these figures come from" states. */
 .tag.pending { color: var(--text); border-color: var(--line-strong); }
+
+/* Waiting for the shift to start: the clock is running but pay is not, so the
+   countdown is muted rather than presented as earned time. */
+.timerlabel { text-align: center; text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: 0.7rem; font-weight: 700; margin-bottom: 2px; }
+.timer.waiting { color: var(--muted); }
 /* ---------- paychecks ---------- */
 
 /* One paycheck in the list; tapping it opens the card. */
@@ -561,6 +567,7 @@ dialog h2 { margin-bottom: 12px; }
 
   <div class="card clockcard">
     <button class="punchbtn in" id="punchBtn"></button>
+    <div class="sub timerlabel" id="timerLabel" hidden>pay accrues in</div>
     <div class="timer" id="timer">0:00:00</div>
     <div class="sub" id="sessionInfo">Not clocked in</div>
     <div class="pills" id="livePills"></div>
@@ -951,6 +958,9 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     duesEnabled: false,         // union dues, off until the contract is known
     duesMultiplier: 0,          // dues = hourlyRate x multiplier + flat
     duesFlat: 0,                // never the pay rate: the premium is excluded
+    // Clock in this close before a whole hour and the hours count from that
+    // hour: 1:50 counts from 2:00. Zero turns it off.
+    hourRoundMinutes: 15,
     earlyClockInMinutes: 15,    // clock in this close before the shift and it
                                 // counts from the shift start instead
     // Repeating bills tied to a weekday rather than a day of the month, keyed
@@ -1234,12 +1244,28 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     var st = settingsWith(settings);
     var raw = toMs(session.start);
     if (raw == null || session.holiday || session.manual) return raw;
+
+    /* 1. Just before the shift: count from the shift start. This comes first
+          because a shift need not begin on the hour. */
     var win = (st.earlyClockInMinutes || 0) * 60000;
-    if (win <= 0) return raw;
-    var day = shiftDayOf(raw, st);
-    if (dayKind(day, st) !== 'scheduled') return raw;   // no shift to count from
-    var w = shiftWindow(day, st);
-    if (raw < w.s && (w.s - raw) <= win) return w.s;
+    if (win > 0) {
+      var day = shiftDayOf(raw, st);
+      if (dayKind(day, st) === 'scheduled') {
+        var w = shiftWindow(day, st);
+        if (raw < w.s && (w.s - raw) <= win) return w.s;
+      }
+    }
+
+    /* 2. Just before any whole hour: count from that hour. Measured on the wall
+          clock, not on epoch milliseconds, so a zone offset of half an hour
+          still rounds to its own hours. */
+    var hr = (st.hourRoundMinutes || 0) * 60000;
+    if (hr > 0) {
+      var local = raw + tzOffset(raw, st.timezone);
+      var intoHour = ((local % 3600000) + 3600000) % 3600000;
+      var toNext = 3600000 - intoHour;
+      if (intoHour !== 0 && toNext <= hr) return raw + toNext;
+    }
     return raw;
   }
 
@@ -1982,7 +2008,10 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     return (v < 0 ? '-$' : '$') + Math.abs(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   }
   function hrs(x) {
-    var mins = Math.round((x || 0) * 60);
+    /* Floor, not round: a minute counts once it has been worked, not once it is
+       half over. The epsilon is for float dust -- 8 h held as 7.999999999 must
+       still read 8h, not 7h 59m. */
+    var mins = Math.floor((x || 0) * 60 + 1e-9);
     if (mins <= 0) return '0h';
     var h = Math.floor(mins / 60), m = mins % 60;
     return (h ? h + 'h' : '') + (m ? (h ? ' ' : '') + m + 'm' : '');
@@ -2297,17 +2326,23 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
       return { pay: pay, override: pr.override, gross: pay.gross, net: pay.net,
                baseSoFar: pay.baseGross, daysSoFar: null, daysTotal: null };
     }
+    /* A day accrues in proportion to the shift actually worked, not all at once.
+       It used to count a whole day the instant any hours existed, so clocking in
+       credited a full day's base one minute into the shift -- money that had not
+       been earned yet. A paid day off still counts whole: it pays whether or not
+       you are there. */
+    var perDay = E.dailyHoursOf(st.schedule);
     var daysSoFar = 0, daysTotal = 0;
     for (var j = 0; j < 7; j++) {
       var kk = E.addDaysKey(wk.weekStart, j);
       if (E.dayKind(kk, st) !== 'scheduled') continue;
       daysTotal++;
       if (E.daysBetweenKeys(kk, tk) < 0) continue;          // still to come
-      var logged = wk.days[kk];
       var mk = DB.dayMarkers[kk];
-      var worked = !!(logged && (logged.regularHours || logged.ot15 || logged.ot2));
-      var paidOff = !!mk && E.markerPaidHours(mk, st) > 0;
-      if (worked || paidOff) daysSoFar++;
+      if (!!mk && E.markerPaidHours(mk, st) > 0) { daysSoFar += 1; continue; }
+      var logged = wk.days[kk];
+      var onShift = logged ? (logged.regularHours || 0) : 0;
+      if (onShift > 0 && perDay > 0) daysSoFar += Math.min(1, onShift / perDay);
     }
     var baseSoFar = daysTotal ? pay.baseGross * (daysSoFar / daysTotal) : 0;
     var gross = baseSoFar + pay.ot15Pay + pay.ot2Pay;
@@ -2472,11 +2507,25 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     }
 
     renderLive();
+    renderHomeFigures();
+  }
 
-    // Today
+  /* The hours and money on the clock page, redrawn on the live tick as well as
+     on navigation. Without this a running shift only moved when the page was
+     reloaded. Guarded by a signature so a tick that changes nothing -- most of
+     them, since this reads to the minute -- touches no DOM at all. */
+  var homeFiguresKey = null;
+  function renderHomeFigures() {
     var tk = todayKey();
     var wk = weekFor(E.weekStartKey(tk, 1), true) || emptyWeek(E.weekStartKey(tk, 1));
     var d = wk.days[tk] || { regularHours: 0, ot15: 0, ot2: 0, otHours: 0 };
+    var earned = earnedForWeek(wk);
+    var key = [tk, wk.weekStart, hrs(d.regularHours), hrs(d.ot15), hrs(d.ot2),
+               hnum(wk.regularHours), hnum(wk.ot15), hnum(wk.ot2),
+               money(earned.net), !!earned.override,
+               markerLabel(DB.dayMarkers[tk]) || ''].join('|');
+    if (key === homeFiguresKey) return;
+    homeFiguresKey = key;
     fillStats($('todayStats'), [
       { k: 'Shift', v: hrs(d.regularHours), cls: d.regularHours ? 'cbase' : '' },
       { k: '1.5x', v: hrs(d.ot15), cls: d.ot15 ? 'c15' : '' },
@@ -2495,7 +2544,6 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
       { k: '2x', v: hnum(wk.ot2) + ' h', cls: wk.ot2 ? 'c2' : '' }
     ]);
     // Only what has been clocked or entered for that week -- not a projection.
-    var earned = earnedForWeek(wk);
     $('nextPayLabel').textContent = '(' + fmtKey(wk.payday, true) +
       (earned.override ? ', manual entry' : '') + ')';
     $('homeNextNet').textContent = money(earned.net);
@@ -2510,8 +2558,16 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
       if (tick) { clearInterval(tick); tick = null; }
       return;
     }
-    var counted = E.adjustedStart(act, S());
-    $('timer').textContent = elapsed(Date.now() - counted);
+    /* Clocking in early starts the clock but not the pay: the hours count from
+       the shift start. Rather than a timer frozen at zero, count down to the
+       moment pay begins -- "pay accrues in", not "shift starts in", because the
+       shift is what you are already standing in. */
+    var counted = E.adjustedStart(act, S()), now = Date.now();
+    var waiting = counted > now;
+    $('timerLabel').hidden = !waiting;
+    $('timer').textContent = elapsed(waiting ? counted - now : now - counted);
+    if (waiting) $('timer').classList.add('waiting');
+    else $('timer').classList.remove('waiting');
     var c = E.classifySession({ start: act.start, end: Date.now(), holiday: act.holiday },
                               S(), DB.dayMarkers);
     var reg = 0, ot = 0;
@@ -2520,7 +2576,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     pills.appendChild(el('span', 'pill', 'Shift ' + esc(hrs(reg))));
     pills.appendChild(el('span', 'pill', 'Overtime ' + esc(hrs(ot))));
     if (c.segments.length > 1) pills.appendChild(el('span', 'pill', 'Crosses midnight'));
-    if (!tick) tick = setInterval(renderLive, 1000);
+    if (!tick) tick = setInterval(function () { renderLive(); renderHomeFigures(); }, 1000);
   }
 
   $('punchBtn').addEventListener('click', function () {
@@ -2643,7 +2699,8 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
     if (pay.unpaidHours) eBits.push(hrs(pay.unpaidHours) + ' unpaid');
     var baseLabel = earned.override
       ? 'Base' + (eBits.length ? ' (less ' + eBits.join(' and ') + ')' : '')
-      : 'Base accrued (' + earned.daysSoFar + ' of ' + earned.daysTotal + ' days)';
+      : 'Base accrued (' + hnum(earned.daysSoFar) + ' of ' + earned.daysTotal +
+        (earned.daysTotal === 1 ? ' day)' : ' days)');
     row(td, baseLabel, money(earned.baseSoFar));
     // Broken out the same way the Projected tab does it, so the two compare line for line.
     row(td, hnum(pay.ot15Hours) + ' h x ' + rate(pay.ot15Rate) + ' (1.5x)', money(pay.ot15Pay), 'c15');
