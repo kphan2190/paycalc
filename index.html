@@ -1240,6 +1240,15 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
      punch itself is never rewritten -- the adjustment is derived, so changing
      the window re-derives it and a settled week keeps its own. Holiday sessions
      and hand-entered punches are always taken exactly as they are. */
+  // Is this moment inside the shift it belongs to, on a day that has one?
+  function withinShift(ms, settings) {
+    var st = settingsWith(settings);
+    var day = shiftDayOf(ms, st);
+    if (dayKind(day, st) !== 'scheduled') return false;
+    var w = shiftWindow(day, st);
+    return ms >= w.s && ms < w.e;
+  }
+
   function adjustedStart(session, settings) {
     var st = settingsWith(settings);
     var raw = toMs(session.start);
@@ -1258,9 +1267,15 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
 
     /* 2. Just before any whole hour: count from that hour. Measured on the wall
           clock, not on epoch milliseconds, so a zone offset of half an hour
-          still rounds to its own hours. */
+          still rounds to its own hours.
+
+          Not inside your own shift, though. Clocking in at 7:45 on a shift that
+          began at 6:00 means you are late, and rounding forward to 8:00 would
+          dock a further quarter hour on top of the one already lost. The rule
+          is there to tidy an arrival before the hour, not to penalise one
+          after it. */
     var hr = (st.hourRoundMinutes || 0) * 60000;
-    if (hr > 0) {
+    if (hr > 0 && !withinShift(raw, st)) {
       var local = raw + tzOffset(raw, st.timezone);
       var intoHour = ((local % 3600000) + 3600000) % 3600000;
       var toNext = 3600000 - intoHour;
